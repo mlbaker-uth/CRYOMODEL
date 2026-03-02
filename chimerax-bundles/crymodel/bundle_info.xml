@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BundleInfo name="CryoModel" version="0.1" package="chimerax.cryomodel">
+  <Author name="Matthew L. Baker" />
+  <Description>Unified cryo-EM modeling tools: finders, pathwalker, pyHole.</Description>
+  <Category>Volume Data</Category>
+  <SrcDir>src</SrcDir>
+  <Commands>
+    <Command name="crymodel_findligands" synopsis="Assign unmodeled density with CryoModel" />
+  </Commands>
+  <Providers>
+    <Provider name="CryoModel" type="python" module="__init__"/>
+  </Providers>
+</BundleInfo>

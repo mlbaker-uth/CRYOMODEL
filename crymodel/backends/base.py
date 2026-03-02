@@ -1,0 +1,13 @@
+from typing import Protocol
+
+class StructureIO(Protocol):
+    def read_model(self, path: str): ...
+    def write_model(self, path: str, model): ...
+
+class MapOps(Protocol):
+    def read_map(self, path: str): ...
+    def write_map(self, path: str, vol): ...
+
+class Backend(Protocol):
+    structure: StructureIO
+    maps: MapOps

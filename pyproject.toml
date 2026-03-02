@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crymodel"
+version = "0.1.0"
+description = "Unified cryo-EM modeling toolkit"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "scipy",
+  "mrcfile",
+  "gemmi>=0.6.5",
+  "scikit-learn",
+  "typer",
+  "matplotlib",
+  "pandas",
+  "pyyaml",
+]
+[project.optional-dependencies]
+ml = ["torch"]
+pathwalk = ["ortools"]
+
+[project.scripts]
+crymodel = "crymodel.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["crymodel*"]
+exclude = ["tests*", "examples*", "outputs*", "chimerax-bundles*", "docs*", "data*"]
