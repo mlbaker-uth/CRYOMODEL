@@ -1,0 +1,4 @@
+/path/to/volumes
+pair1_vol1.mrc pair1_vol2.mrc 0.45
+pair2_vol1.mrc pair2_vol2.mrc 0.55
+pair3_vol1.mrc pair3_vol2.mrc 0.40

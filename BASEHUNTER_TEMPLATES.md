@@ -111,6 +111,7 @@ templates/
 - **Resolution**: 2.0-4.0 Å (match your data range)
 - **Size**: Should be similar to your base pair volumes (typically 10-20 Å cube)
 - **Content**: Just the base itself (not the full nucleotide with sugar-phosphate)
+  - If you provide a sugar/phosphate backbone mask, BaseHunter can exclude backbone density during scoring.
 
 ### For PDB Models:
 - **Format**: PDB or mmCIF
@@ -132,6 +133,19 @@ templates/
    - Handles variation in base types
 
 4. **Use density maps if possible** (faster than PDB conversion)
+
+## Packaged DNA Templates
+
+If you distribute a template directory containing:
+- `templateBP-purine.mrc`
+- `templateBP-pyrimidine.mrc`
+- `template-sp-backbone.mrc`
+
+BaseHunter will default to:
+- `template_threshold = 1.7`
+- `backbone_mask_threshold = 0.45`
+
+You can still override these via CLI flags.
 
 ## Template Generation
 

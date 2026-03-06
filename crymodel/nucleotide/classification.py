@@ -12,6 +12,78 @@ from ..io.mrc import read_map, MapVolume
 from .templates import TemplateLibrary
 
 
+def _pad_to_match(volume: np.ndarray, template: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Pad smaller volume to match larger (z, y, x)."""
+    if volume.shape == template.shape:
+        return volume, template
+
+    max_shape = tuple(max(s1, s2) for s1, s2 in zip(volume.shape, template.shape))
+    volume_padded = np.zeros(max_shape, dtype=volume.dtype)
+    template_padded = np.zeros(max_shape, dtype=template.dtype)
+
+    v0, v1, v2 = volume.shape
+    t0, t1, t2 = template.shape
+
+    volume_padded[:v0, :v1, :v2] = volume
+    template_padded[:t0, :t1, :t2] = template
+
+    return volume_padded, template_padded
+
+
+def _compute_alignment_shift(volume: np.ndarray, template: np.ndarray) -> Tuple[int, int, int]:
+    """Compute best translation shift from volume to template using FFT correlation."""
+    volume, template = _pad_to_match(volume, template)
+
+    volume_norm = volume - np.mean(volume)
+    volume_std = np.std(volume_norm)
+    if volume_std > 1e-6:
+        volume_norm /= volume_std
+
+    template_norm = template - np.mean(template)
+    template_std = np.std(template_norm)
+    if template_std > 1e-6:
+        template_norm /= template_std
+
+    volume_fft = np.fft.fftn(volume_norm)
+    template_fft = np.fft.fftn(template_norm)
+    corr_fft = np.conj(volume_fft) * template_fft
+    corr = np.fft.ifftn(corr_fft).real
+
+    peak_idx = np.unravel_index(np.argmax(corr), corr.shape)
+    shift = (
+        peak_idx[0] - volume.shape[0] // 2,
+        peak_idx[1] - volume.shape[1] // 2,
+        peak_idx[2] - volume.shape[2] // 2,
+    )
+    return shift
+
+
+def _compute_shift_from_reference_mask(
+    volume_mask: np.ndarray,
+    reference_mask: np.ndarray,
+) -> Tuple[int, int, int]:
+    """Compute translation shift that maximizes overlap with a reference mask."""
+    volume_mask, reference_mask = _pad_to_match(volume_mask, reference_mask)
+
+    vol_fft = np.fft.fftn(volume_mask)
+    ref_fft = np.fft.fftn(reference_mask)
+    corr_fft = np.conj(vol_fft) * ref_fft
+    corr = np.fft.ifftn(corr_fft).real
+
+    peak_idx = np.unravel_index(np.argmax(corr), corr.shape)
+    shift = (
+        peak_idx[0] - volume_mask.shape[0] // 2,
+        peak_idx[1] - volume_mask.shape[1] // 2,
+        peak_idx[2] - volume_mask.shape[2] // 2,
+    )
+    return shift
+
+
+def _apply_shift(volume: np.ndarray, shift: Tuple[int, int, int]) -> np.ndarray:
+    """Apply circular shift to volume."""
+    return np.roll(volume, shift, axis=(0, 1, 2))
+
+
 def align_volume_to_template(
     volume: np.ndarray,
     template: np.ndarray,
@@ -19,67 +91,23 @@ def align_volume_to_template(
 ) -> Tuple[np.ndarray, np.ndarray, float]:
     """
     Align volume to template using rigid-body transformation.
-    
+
     Args:
         volume: Volume to align (z, y, x)
         template: Template volume (z, y, x)
         method: Alignment method ("ncc" for normalized cross-correlation)
-        
+
     Returns:
         (aligned_volume, transformation_matrix, correlation_score)
     """
-    # For now, use FFT-based cross-correlation for translation
-    # Then refine with small rotations if needed
-    
-    # Ensure same shape (pad if needed)
-    if volume.shape != template.shape:
-        # Pad smaller volume to match larger
-        max_shape = tuple(max(s1, s2) for s1, s2 in zip(volume.shape, template.shape))
-        volume_padded = np.zeros(max_shape, dtype=volume.dtype)
-        template_padded = np.zeros(max_shape, dtype=template.dtype)
-        
-        v0, v1, v2 = volume.shape
-        t0, t1, t2 = template.shape
-        
-        volume_padded[:v0, :v1, :v2] = volume
-        template_padded[:t0, :t1, :t2] = template
-        
-        volume = volume_padded
-        template = template_padded
-    
-    # Normalize
-    volume_norm = volume - np.mean(volume)
-    volume_std = np.std(volume_norm)
-    if volume_std > 1e-6:
-        volume_norm /= volume_std
-    
-    template_norm = template - np.mean(template)
-    template_std = np.std(template_norm)
-    if template_std > 1e-6:
-        template_norm /= template_std
-    
-    # FFT-based cross-correlation
-    volume_fft = np.fft.fftn(volume_norm)
-    template_fft = np.fft.fftn(template_norm)
-    
-    corr_fft = np.conj(volume_fft) * template_fft
-    corr = np.fft.ifftn(corr_fft).real
-    
-    # Find peak (best translation)
-    peak_idx = np.unravel_index(np.argmax(corr), corr.shape)
-    peak_corr = corr[peak_idx]
-    
-    # Apply translation (circular shift)
-    aligned = np.roll(volume, 
-                     (peak_idx[0] - volume.shape[0]//2,
-                      peak_idx[1] - volume.shape[1]//2,
-                      peak_idx[2] - volume.shape[2]//2),
-                     axis=(0, 1, 2))
-    
-    # Identity transformation matrix (for now - could add rotation refinement)
+    shift = _compute_alignment_shift(volume, template)
+    aligned = _apply_shift(volume, shift)
     transform = np.eye(4, dtype=np.float32)
-    
-    return aligned, transform, float(peak_corr)
+
+    ncc = calculate_normalized_cross_correlation(aligned, template)
+    corr_score = (ncc + 1.0) / 2.0
+
+    return aligned, transform, float(corr_score)
 
 
 def extract_features(volume: np.ndarray) -> Dict[str, float]:
@@ -175,6 +203,152 @@ def feature_similarity(features1: Dict[str, float], features2: Dict[str, float])
     return float((similarity + 1.0) / 2.0)
 
 
+def _normalize_class_scores(purine_score: float, pyrimidine_score: float) -> Tuple[float, float]:
+    """Normalize purine/pyrimidine scores into probabilities."""
+    pur = max(0.0, float(purine_score))
+    pyr = max(0.0, float(pyrimidine_score))
+    total = pur + pyr
+    if total < 1e-8:
+        return 0.5, 0.5
+    return pur / total, pyr / total
+
+
+def _resolve_pair_assignment(
+    p1_pur: float,
+    p1_pyr: float,
+    p2_pur: float,
+    p2_pyr: float,
+    pair_mismatch_penalty: float,
+) -> Tuple[str, str]:
+    """
+    Resolve a base-pair assignment using probabilistic scoring.
+
+    The pair_mismatch_penalty down-weights assignments where both bases
+    are purines or both are pyrimidines. A value of 0.1 matches the
+    low-probability correction used in doubleHelix. A value of 0.0
+    makes the constraint hard (only purine+pyrimidine allowed).
+    """
+    eps = 1e-8
+    p1_pur = max(p1_pur, eps)
+    p1_pyr = max(p1_pyr, eps)
+    p2_pur = max(p2_pur, eps)
+    p2_pyr = max(p2_pyr, eps)
+
+    if pair_mismatch_penalty <= 0.0:
+        # Hard constraint: disallow purine/purine and pyrimidine/pyrimidine
+        score_pp = -np.inf
+        score_yy = -np.inf
+    else:
+        penalty = float(min(pair_mismatch_penalty, 1.0))
+        score_pp = np.log(p1_pur) + np.log(p2_pur) + np.log(penalty)
+        score_yy = np.log(p1_pyr) + np.log(p2_pyr) + np.log(penalty)
+
+    score_py = np.log(p1_pur) + np.log(p2_pyr)
+    score_yp = np.log(p1_pyr) + np.log(p2_pur)
+
+    scores = {
+        ("purine", "purine"): score_pp,
+        ("purine", "pyrimidine"): score_py,
+        ("pyrimidine", "purine"): score_yp,
+        ("pyrimidine", "pyrimidine"): score_yy,
+    }
+    best_assignment = max(scores.items(), key=lambda item: item[1])[0]
+    return best_assignment[0], best_assignment[1]
+
+
+def _apply_template_mask(
+    volume: np.ndarray,
+    template: np.ndarray,
+    template_mask_threshold: Optional[float],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply a template-derived mask to focus scoring on base density."""
+    if template_mask_threshold is None:
+        return volume, template
+
+    mask = template > template_mask_threshold
+    if not np.any(mask):
+        return volume, template
+
+    return volume * mask, template * mask
+
+
+def _apply_center_sphere_mask(
+    volume: np.ndarray,
+    template: np.ndarray,
+    radius_vox: Optional[float],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply a spherical mask around the box center to reduce backbone signal."""
+    if radius_vox is None or radius_vox <= 0:
+        return volume, template
+
+    z, y, x = volume.shape
+    cz, cy, cx = (z - 1) / 2.0, (y - 1) / 2.0, (x - 1) / 2.0
+    zz, yy, xx = np.ogrid[:z, :y, :x]
+    dist2 = (zz - cz) ** 2 + (yy - cy) ** 2 + (xx - cx) ** 2
+    mask = dist2 <= (radius_vox ** 2)
+    if not np.any(mask):
+        return volume, template
+
+    return volume * mask, template * mask
+
+def compute_pair_assignment_probabilities(
+    p1_pur: float,
+    p1_pyr: float,
+    p2_pur: float,
+    p2_pyr: float,
+    pair_mismatch_penalty: float,
+) -> Dict[Tuple[str, str], float]:
+    """
+    Compute normalized probabilities for all pair assignments.
+
+    Returns a dict keyed by (class1, class2) with probabilities that sum to 1.
+    """
+    eps = 1e-8
+    p1_pur = max(p1_pur, eps)
+    p1_pyr = max(p1_pyr, eps)
+    p2_pur = max(p2_pur, eps)
+    p2_pyr = max(p2_pyr, eps)
+
+    if pair_mismatch_penalty <= 0.0:
+        score_pp = -np.inf
+        score_yy = -np.inf
+    else:
+        penalty = float(min(pair_mismatch_penalty, 1.0))
+        score_pp = np.log(p1_pur) + np.log(p2_pur) + np.log(penalty)
+        score_yy = np.log(p1_pyr) + np.log(p2_pyr) + np.log(penalty)
+
+    score_py = np.log(p1_pur) + np.log(p2_pyr)
+    score_yp = np.log(p1_pyr) + np.log(p2_pur)
+
+    scores = {
+        ("purine", "purine"): score_pp,
+        ("purine", "pyrimidine"): score_py,
+        ("pyrimidine", "purine"): score_yp,
+        ("pyrimidine", "pyrimidine"): score_yy,
+    }
+
+    # Softmax over finite scores
+    finite_scores = [s for s in scores.values() if np.isfinite(s)]
+    if not finite_scores:
+        # Fallback to uniform
+        return {k: 0.25 for k in scores}
+
+    max_score = max(finite_scores)
+    exp_scores = {}
+    total = 0.0
+    for k, s in scores.items():
+        if np.isfinite(s):
+            exp_s = np.exp(s - max_score)
+        else:
+            exp_s = 0.0
+        exp_scores[k] = exp_s
+        total += exp_s
+
+    if total < 1e-12:
+        return {k: 0.25 for k in scores}
+
+    return {k: v / total for k, v in exp_scores.items()}
+
 def compute_emd_similarity(
     volume1: np.ndarray,
     volume2: np.ndarray,
@@ -231,6 +405,11 @@ def classify_with_templates(
     alignment_threshold: float = 0.3,
     use_emd: bool = True,
     emd_weight: float = 0.2,
+    template_mask_threshold: Optional[float] = None,
+    center_sphere_radius: Optional[float] = None,
+    alignment_volume: Optional[np.ndarray] = None,
+    alignment_reference_mask: Optional[np.ndarray] = None,
+    apply_alignment: bool = True,
 ) -> Tuple[str, float, float, float]:
     """
     Classify volume as purine-like, pyrimidine-like, or unclassified.
@@ -251,8 +430,39 @@ def classify_with_templates(
         confidence: Confidence in classification (0-1, higher = more confident)
     """
     # Align to both templates
-    aligned_purine, _, purine_corr = align_volume_to_template(volume, purine_template)
-    aligned_pyrimidine, _, pyrimidine_corr = align_volume_to_template(volume, pyrimidine_template)
+    if apply_alignment:
+        align_vol = alignment_volume if alignment_volume is not None else volume
+        if alignment_reference_mask is not None and align_vol is not None:
+            shift = _compute_shift_from_reference_mask(align_vol, alignment_reference_mask)
+            shift_pur = shift
+            shift_pyr = shift
+        else:
+            shift_pur = _compute_alignment_shift(align_vol, purine_template)
+            shift_pyr = _compute_alignment_shift(align_vol, pyrimidine_template)
+        aligned_purine = _apply_shift(volume, shift_pur)
+        aligned_pyrimidine = _apply_shift(volume, shift_pyr)
+    else:
+        aligned_purine = volume
+        aligned_pyrimidine = volume
+
+    aligned_purine, purine_template = _apply_template_mask(
+        aligned_purine, purine_template, template_mask_threshold
+    )
+    aligned_pyrimidine, pyrimidine_template = _apply_template_mask(
+        aligned_pyrimidine, pyrimidine_template, template_mask_threshold
+    )
+
+    aligned_purine, purine_template = _apply_center_sphere_mask(
+        aligned_purine, purine_template, center_sphere_radius
+    )
+    aligned_pyrimidine, pyrimidine_template = _apply_center_sphere_mask(
+        aligned_pyrimidine, pyrimidine_template, center_sphere_radius
+    )
+
+    purine_corr = calculate_normalized_cross_correlation(aligned_purine, purine_template)
+    pyrimidine_corr = calculate_normalized_cross_correlation(aligned_pyrimidine, pyrimidine_template)
+    purine_corr = (purine_corr + 1.0) / 2.0
+    pyrimidine_corr = (pyrimidine_corr + 1.0) / 2.0
     
     # Extract features
     purine_features = extract_features(aligned_purine)
@@ -309,17 +519,18 @@ def classify_with_templates(
 def enforce_base_pair_constraint(
     classifications: Dict[str, Tuple[str, float, float, float]],
     base_pairs: List[Tuple[str, str]],
+    pair_mismatch_penalty: float = 0.1,
 ) -> Dict[str, str]:
     """
     Enforce constraint: each base pair must have 1 purine + 1 pyrimidine.
     
-    If one is unclassified, assign based on the other.
-    If both are unclassified, use scores to assign.
-    If both are same class, resolve by confidence.
+    Uses a probabilistic pair assignment and applies a penalty for
+    same-class pairs (purine/purine or pyrimidine/pyrimidine).
     
     Args:
         classifications: Dict mapping volume_path -> (class, purine_score, pyrimidine_score, confidence)
         base_pairs: List of (volume1_path, volume2_path) tuples
+        pair_mismatch_penalty: Penalty for same-class pairs (0.0=hard constraint)
         
     Returns:
         Dict mapping volume_path -> resolved_class ("purine" or "pyrimidine")
@@ -332,44 +543,14 @@ def enforce_base_pair_constraint(
         
         class1, score1_pur, score1_pyr, conf1 = classifications[vol1]
         class2, score2_pur, score2_pyr, conf2 = classifications[vol2]
-        
-        # Both classified - check constraint
-        if class1 != "unclassified" and class2 != "unclassified":
-            if class1 == class2:
-                # Conflict: both same class - resolve by confidence
-                if conf1 > conf2:
-                    # Reclassify vol2
-                    class2 = "pyrimidine" if class1 == "purine" else "purine"
-                else:
-                    # Reclassify vol1
-                    class1 = "pyrimidine" if class2 == "purine" else "purine"
-        
-        # One unclassified - assign based on other
-        elif class1 == "unclassified" and class2 != "unclassified":
-            class1 = "pyrimidine" if class2 == "purine" else "purine"
-        elif class2 == "unclassified" and class1 != "unclassified":
-            class2 = "pyrimidine" if class1 == "purine" else "purine"
-        
-        # Both unclassified - use scores to assign
-        elif class1 == "unclassified" and class2 == "unclassified":
-            # Use combined scores to determine assignment
-            vol1_pur_score = score1_pur
-            vol1_pyr_score = score1_pyr
-            vol2_pur_score = score2_pur
-            vol2_pyr_score = score2_pyr
-            
-            # Try both assignments and pick best
-            # Assignment 1: vol1=purine, vol2=pyrimidine
-            score1 = vol1_pur_score + vol2_pyr_score
-            # Assignment 2: vol1=pyrimidine, vol2=purine
-            score2 = vol1_pyr_score + vol2_pur_score
-            
-            if score1 > score2:
-                class1 = "purine"
-                class2 = "pyrimidine"
-            else:
-                class1 = "pyrimidine"
-                class2 = "purine"
+
+        # Convert scores to normalized probabilities for pairwise resolution
+        p1_pur, p1_pyr = _normalize_class_scores(score1_pur, score1_pyr)
+        p2_pur, p2_pyr = _normalize_class_scores(score2_pur, score2_pyr)
+
+        class1, class2 = _resolve_pair_assignment(
+            p1_pur, p1_pyr, p2_pur, p2_pyr, pair_mismatch_penalty
+        )
         
         resolved[vol1] = class1
         resolved[vol2] = class2
@@ -466,7 +647,13 @@ def bootstrap_classification(
     alignment_threshold: float = 0.3,
     use_emd: bool = True,
     emd_weight: float = 0.2,
-) -> Dict[str, Dict[str, float]]:
+    pair_mismatch_penalty: float = 0.1,
+    template_mask_threshold: Optional[float] = None,
+    center_sphere_radius: Optional[float] = None,
+    alignment_volumes: Optional[Dict[str, np.ndarray]] = None,
+    alignment_reference_mask: Optional[np.ndarray] = None,
+    apply_alignment: bool = True,
+) -> Tuple[Dict[str, Dict[str, float]], Dict[Tuple[str, str], List[float]]]:
     """
     Bootstrap classification to estimate likelihoods.
     
@@ -479,11 +666,14 @@ def bootstrap_classification(
         alignment_threshold: Minimum correlation threshold
         
     Returns:
-        Dict mapping volume_path -> {"purine": likelihood, "pyrimidine": likelihood, "unclassified": likelihood}
+        (likelihoods, pair_confidences)
+        likelihoods: Dict mapping volume_path -> {"purine": likelihood, "pyrimidine": likelihood, "unclassified": likelihood}
+        pair_confidences: Dict mapping (vol1, vol2) -> list of pair_confidence values from bootstrap samples
     """
     from collections import defaultdict
     
     likelihoods = defaultdict(lambda: {"purine": 0.0, "pyrimidine": 0.0, "unclassified": 0.0})
+    pair_confidences = defaultdict(list)
     rng = np.random.default_rng(42)  # Deterministic seed
     
     for bootstrap_iter in range(n_bootstrap):
@@ -497,18 +687,47 @@ def bootstrap_classification(
         # Classify with templates
         classifications = {}
         for vol_name, vol_data in sampled_volumes.items():
-            class_name, _, _, _ = classify_with_templates(
+            align_vol = alignment_volumes.get(vol_name) if alignment_volumes else None
+            class_name, pur_score, pyr_score, conf = classify_with_templates(
                 vol_data, purine_template, pyrimidine_template, 
-                alignment_threshold, use_emd=use_emd, emd_weight=emd_weight
+                alignment_threshold, use_emd=use_emd, emd_weight=emd_weight,
+                template_mask_threshold=template_mask_threshold,
+                center_sphere_radius=center_sphere_radius,
+                alignment_volume=align_vol,
+                alignment_reference_mask=alignment_reference_mask,
+                apply_alignment=apply_alignment,
             )
-            classifications[vol_name] = class_name
+            classifications[vol_name] = (class_name, pur_score, pyr_score, conf)
         
         # Enforce constraints
-        resolved = enforce_base_pair_constraint(classifications, base_pairs)
+        resolved = enforce_base_pair_constraint(
+            classifications, base_pairs, pair_mismatch_penalty=pair_mismatch_penalty
+        )
         
         # Count assignments
         for vol_name, class_name in resolved.items():
             likelihoods[vol_name][class_name] += 1.0 / n_bootstrap
+
+        # Pair-wise confidence distribution
+        for vol1, vol2 in base_pairs:
+            if vol1 not in classifications or vol2 not in classifications:
+                continue
+            _, score1_pur, score1_pyr, _ = classifications[vol1]
+            _, score2_pur, score2_pyr, _ = classifications[vol2]
+            p1_pur, p1_pyr = _normalize_class_scores(score1_pur, score1_pyr)
+            p2_pur, p2_pyr = _normalize_class_scores(score2_pur, score2_pyr)
+            pair_probs = compute_pair_assignment_probabilities(
+                p1_pur,
+                p1_pyr,
+                p2_pur,
+                p2_pyr,
+                pair_mismatch_penalty=pair_mismatch_penalty,
+            )
+            class1 = resolved.get(vol1, "purine")
+            class2 = resolved.get(vol2, "pyrimidine")
+            pair_confidences[(vol1, vol2)].append(
+                pair_probs.get((class1, class2), 0.0)
+            )
     
-    return dict(likelihoods)
+    return dict(likelihoods), dict(pair_confidences)
 

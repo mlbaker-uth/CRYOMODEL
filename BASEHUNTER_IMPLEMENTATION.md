@@ -14,7 +14,7 @@ BaseHunter has been fully enhanced with template-based classification, constrain
 ## Template System
 
 ### Template Location
-Templates are located at: `/Users/mbaker/Downloads/Basehunter-templates/`
+Default packaged templates are located at: `data/DNA-TEMPLATES/`
 
 ### Template Files
 - `template-a-35.mrc` - Adenine (purine) at 3.5 Å
@@ -35,7 +35,6 @@ The system automatically detects templates using the naming pattern:
 ```bash
 crymodel basehunter compare \
     --input-file input_pairs.txt \
-    --template-dir /Users/mbaker/Downloads/Basehunter-templates \
     --threshold 0.3 \
     --out-dir basehunter_outputs
 ```
@@ -45,6 +44,7 @@ crymodel basehunter compare \
 The input file should contain:
 - Line 1: Directory path containing volume files
 - Subsequent lines: Pairs of volume filenames (space-separated)
+- Optional third value: per-pair threshold override
 
 Example `input_pairs.txt`:
 ```
@@ -54,11 +54,22 @@ pair2_vol1.mrc pair2_vol2.mrc
 pair3_vol1.mrc pair3_vol2.mrc
 ```
 
+Example with per-pair thresholds:
+```
+/path/to/volumes
+pair1_vol1.mrc pair1_vol2.mrc 0.45
+pair2_vol1.mrc pair2_vol2.mrc 0.55
+pair3_vol1.mrc pair3_vol2.mrc 0.40
+```
+
 ### Options
 
 - `--input-file`: Input file with volume pairs
 - `--template-dir`: Directory containing templates (required)
 - `--threshold`: Density threshold for volumes (required)
+- `--template-threshold`: Threshold for template maps (zero below)
+- `--backbone-mask-mrc`: Backbone mask map to exclude sugar/phosphate
+- `--backbone-mask-threshold`: Threshold for backbone mask map
 - `--resolution`: Target resolution in Å (auto-detect if not provided)
 - `--alignment-threshold`: Minimum correlation for classification (default: 0.3)
 - `--bootstrap/--no-bootstrap`: Enable/disable bootstrap analysis (default: enabled)

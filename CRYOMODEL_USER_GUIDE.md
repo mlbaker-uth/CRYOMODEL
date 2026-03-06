@@ -426,9 +426,10 @@ crymodel basehunter compare \
 
 **Required Arguments**:
 - `--input-file`: File with volume directory and pairs
-- `--threshold`: Density threshold for point cloud generation
+- `--threshold`: Density threshold for volumes (unless per-pair thresholds are provided)
 
 **Options**:
+- `--template-dir <path>`: Template directory (defaults to `data/DNA-TEMPLATES` if present)
 - `--out-dir <path>`: Output directory (default: "outputs")
 - `--max-iterations <int>`: Maximum Monte Carlo iterations (default: 1000)
 - `--min-stability <int>`: Minimum stability for convergence (default: 100000)
@@ -442,6 +443,13 @@ crymodel basehunter compare \
 volume1.mrc volume2.mrc
 volume3.mrc volume4.mrc
 ...
+```
+
+**Per-pair thresholds**:
+```
+/path/to/volume/directory
+volume1.mrc volume2.mrc 0.45
+volume3.mrc volume4.mrc 0.55
 ```
 
 **Outputs**:

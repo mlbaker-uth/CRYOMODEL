@@ -10,11 +10,17 @@ from ..nucleotide.basehunter_enhanced import classify_base_pairs
 
 app = typer.Typer(no_args_is_help=True)
 
+DEFAULT_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "data" / "DNA-TEMPLATES"
+
 
 @app.command()
 def compare(
     input_file: str = typer.Option(..., "--input-file", help="Input file with volume directory and pairs"),
-    template_dir: str = typer.Option(..., "--template-dir", help="Directory containing purine/pyrimidine templates"),
+    template_dir: str = typer.Option(
+        str(DEFAULT_TEMPLATE_DIR),
+        "--template-dir",
+        help="Directory containing purine/pyrimidine templates",
+    ),
     threshold: Optional[float] = typer.Option(None, "--threshold", help="Density threshold value (prompted if missing)"),
     target_resolution: Optional[float] = typer.Option(None, "--resolution", help="Target resolution in Å (prompted if missing)"),
     alignment_threshold: float = typer.Option(0.3, "--alignment-threshold", help="Minimum correlation for classification"),
@@ -22,6 +28,71 @@ def compare(
     n_bootstrap: int = typer.Option(100, "--n-bootstrap", help="Number of bootstrap iterations"),
     use_emd: bool = typer.Option(True, "--emd/--no-emd", help="Use Earth Mover's Distance for additional discrimination"),
     emd_weight: float = typer.Option(0.2, "--emd-weight", help="Weight for EMD in combined score (0.0-1.0, default 0.2)"),
+    pair_mismatch_penalty: float = typer.Option(
+        0.1,
+        "--pair-mismatch-penalty",
+        help="Penalty for same-class base pairs (0.0=hard constraint, 1.0=no penalty)",
+    ),
+    template_mask_threshold: Optional[float] = typer.Option(
+        None,
+        "--template-mask-threshold",
+        help="Threshold for template-derived mask to reduce backbone influence",
+    ),
+    center_sphere_radius: Optional[float] = typer.Option(
+        None,
+        "--center-sphere-radius",
+        help="Spherical mask radius (vox) around box center",
+    ),
+    score_on_raw: bool = typer.Option(
+        False,
+        "--score-on-raw/--score-on-thresholded",
+        help="Score using raw volumes while alignment uses thresholded volumes",
+    ),
+    alignment_reference_pdb: Optional[str] = typer.Option(
+        None,
+        "--alignment-reference-pdb",
+        help="Reference PDB for alignment (base-only template coordinates)",
+    ),
+    alignment_reference_atom_radius_vox: float = typer.Option(
+        1.5,
+        "--alignment-reference-atom-radius-vox",
+        help="Atom mask radius in voxels for reference alignment",
+    ),
+    alignment_on_raw: bool = typer.Option(
+        False,
+        "--alignment-on-raw/--alignment-on-thresholded",
+        help="Align using raw volumes instead of thresholded",
+    ),
+    output_reference_models: bool = typer.Option(
+        False,
+        "--output-reference-models/--no-output-reference-models",
+        help="Write aligned reference PDB per input volume",
+    ),
+    reference_model_output_dir: Optional[str] = typer.Option(
+        None,
+        "--reference-model-output-dir",
+        help="Output directory for aligned reference PDBs",
+    ),
+    apply_alignment: bool = typer.Option(
+        True,
+        "--apply-alignment/--no-alignment",
+        help="Apply alignment before scoring",
+    ),
+    template_threshold: Optional[float] = typer.Option(
+        None,
+        "--template-threshold",
+        help="Threshold for template maps (zero below)",
+    ),
+    backbone_mask_mrc: Optional[str] = typer.Option(
+        None,
+        "--backbone-mask-mrc",
+        help="Backbone mask MRC to exclude sugar/phosphate",
+    ),
+    backbone_mask_threshold: Optional[float] = typer.Option(
+        None,
+        "--backbone-mask-threshold",
+        help="Threshold for backbone mask MRC",
+    ),
     out_dir: str = typer.Option("basehunter_outputs", "--out-dir", help="Output directory for results"),
 ):
     """
@@ -122,6 +193,19 @@ def compare(
             n_bootstrap=n_bootstrap,
             use_emd=use_emd,
             emd_weight=emd_weight,
+            pair_mismatch_penalty=pair_mismatch_penalty,
+            template_mask_threshold=template_mask_threshold,
+            center_sphere_radius=center_sphere_radius,
+            score_on_raw=score_on_raw,
+            alignment_reference_pdb=Path(alignment_reference_pdb) if alignment_reference_pdb else None,
+            alignment_reference_atom_radius_vox=alignment_reference_atom_radius_vox,
+            alignment_on_raw=alignment_on_raw,
+            output_reference_models=output_reference_models,
+            reference_model_output_dir=Path(reference_model_output_dir) if reference_model_output_dir else None,
+            apply_alignment=apply_alignment,
+            template_threshold=template_threshold,
+            backbone_mask_mrc=Path(backbone_mask_mrc) if backbone_mask_mrc else None,
+            backbone_mask_threshold=backbone_mask_threshold,
             output_dir=out_path,
             volume_thresholds=volume_thresholds if volume_thresholds else None,
         )
@@ -161,9 +245,12 @@ def compare(
                 score2 = row.get("volume2_confidence", 0.0)
             
             composite = (score1 + score2) / 2.0
+            pair_conf = row.get("pair_assignment_confidence", 0.0)
+            pair_p = row.get("pair_assignment_p_value", 1.0)
             summary_lines.append(
                 f"{v1} - {_class_to_letter(c1)} {v2} - {_class_to_letter(c2)} "
-                f"Likelihood: {composite:.2f} ({score1:.2f}, {score2:.2f})"
+                f"Likelihood: {composite:.2f} ({score1:.2f}, {score2:.2f}) "
+                f"PairConf: {pair_conf:.2f} PairP: {pair_p:.3f}"
             )
         
         summary_path = out_path / "basehunter_assignments.txt"
