@@ -25,6 +25,7 @@ from .foldhunter import search as _foldhunter
 from .affilter import filter as _affilter
 from .workflow import run as _workflow_run, validate as _workflow_validate
 from .assistant import app as _assistant_app
+from .dnabuild import build as _dnabuild
 
 # Lazy imports for ML commands (only import when actually called)
 # This avoids PyTorch import issues when using non-ML commands
@@ -63,3 +64,4 @@ app.command("affilter")(_affilter)
 app.command("workflow")(_workflow_run)
 app.command("workflow-validate")(_workflow_validate)
 app.add_typer(_assistant_app, name="assistant")
+app.command("dnabuild")(_dnabuild)

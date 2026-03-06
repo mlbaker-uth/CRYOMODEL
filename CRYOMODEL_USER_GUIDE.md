@@ -465,6 +465,47 @@ crymodel basehunter compare \
   --out-dir outputs
 ```
 
+### dnabuild
+
+**Purpose**: Build an initial poly-AT dsDNA model from a dsDNA-only density map.
+
+**Usage**:
+```bash
+crymodel dnabuild build \
+  --map <map.mrc> \
+  --n-bp <num_basepairs> \
+  --threshold <threshold> \
+  [OPTIONS]
+```
+
+**Required Arguments**:
+- `--map`: Input density map (.mrc) containing dsDNA
+- `--n-bp`: Number of base pairs to build
+- `--threshold`: Density threshold for peak detection
+
+**Options**:
+- `--out-pdb <path>`: Output PDB path (default: `dna_model.pdb`)
+- `--sequence-file <path>`: Optional file with two sequences (one per strand)
+- `--template-pdb <path>`: Template PDB for base-pair extraction (default: `data/DNA-TEMPLATES/1BNA.pdb`)
+- `--min-distance-vox <int>`: Minimum spacing between base pairs (voxels)
+- `--resolution <float>`: Template density resolution (Å)
+- `--output-swapped`: Also output swapped-strand model when sequences provided
+
+**Sequence File Format**:
+```
+ACGTA...
+TGCAT...
+```
+
+**Example**:
+```bash
+crymodel dnabuild build \
+  --map dna_only.mrc \
+  --n-bp 12 \
+  --threshold 0.45 \
+  --out-pdb dna_init.pdb
+```
+
 ---
 
 ## Domain Analysis
