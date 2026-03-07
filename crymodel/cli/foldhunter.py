@@ -55,25 +55,24 @@ def search(
     typer.echo(f"  Resolution: {resolution} Å")
     typer.echo(f"  pLDDT threshold: {plddt_threshold}")
     
-        results = foldhunter_search(
-            probe_pdb=probe_pdb,
-            probe_map=probe_map,
-            target_map=target_map,
-            resolution_A=resolution,
-            plddt_threshold=plddt_threshold,
-            density_threshold=density_threshold,
-            coarse_angle_step=coarse_angle_step,
-            fine_angle_step=fine_angle_step,
-            coarse_translation_step=coarse_translation_step,
-            fine_translation_step=fine_translation_step,
-            n_coarse_rotations=n_coarse_rotations,
-            symmetry=symmetry,
-            out_of_bounds_penalty_weight=out_of_bounds_penalty,
-            top_n_candidates=top_n,
-            peak_width_deg=peak_width_deg,
-            max_peaks_coarse=max_peaks_coarse,
-            max_peaks_coarse=max_peaks_coarse,
-        )
+    results = foldhunter_search(
+        probe_pdb=probe_pdb,
+        probe_map=probe_map,
+        target_map=target_map,
+        resolution_A=resolution,
+        plddt_threshold=plddt_threshold,
+        density_threshold=density_threshold,
+        coarse_angle_step=coarse_angle_step,
+        fine_angle_step=fine_angle_step,
+        coarse_translation_step=coarse_translation_step,
+        fine_translation_step=fine_translation_step,
+        n_coarse_rotations=n_coarse_rotations,
+        symmetry=symmetry,
+        out_of_bounds_penalty_weight=out_of_bounds_penalty,
+        top_n_candidates=top_n,
+        peak_width_deg=peak_width_deg,
+        max_peaks_coarse=max_peaks_coarse,
+    )
     
     typer.echo(f"\nFound {len(results)} candidate fits:")
     

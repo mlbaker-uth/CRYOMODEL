@@ -465,6 +465,64 @@ crymodel basehunter compare \
   --out-dir outputs
 ```
 
+### dnaaxis
+
+**Purpose**: Trace a medial-axis-like centerline through a dsDNA density map and output a PDB polyline and MRC axis map.
+
+**Usage**:
+```bash
+crymodel dnaaxis extract \
+  --map <map.mrc> \
+  --threshold <threshold> \
+  [OPTIONS]
+```
+
+**Required Arguments**:
+- `--map`: Input density map (.mrc) containing dsDNA
+- `--threshold`: Density threshold for the binary mask
+
+**Options**:
+- `--n-points <int>`: Total number of points in final polyline (default: auto from length)
+- `--guides-pdb <path>`: Ordered guide PDB (all ATOM/HETATM records used in file order)
+- `--endpoints-pdb <path>`: Alias for a 2-point guide PDB
+- `--power <float>`: Cost exponent for inverse distance-transform weighting (default: 3.0)
+- `--eps <float>`: Stabilizer added to distance transform (default: 1e-3)
+- `--cap-fraction <float>`: Fraction of voxels at each PC1 extreme for automatic termini (default: 0.03)
+- `--close-iters <int>`: Binary closing iterations (default: 0)
+- `--smooth <float>`: Spline smoothing factor per segment (default: 0.4)
+- `--pre-smooth-sigma <float>`: Gaussian sigma for segment smoothing (default: 1.0)
+- `--pre-smooth-iters <int>`: Pre-smoothing passes per segment (default: 2)
+- `--guide-search-radius <float>`: Search radius (Angstrom) around each guide point (default: 8.0)
+- `--guide-dt-weight <float>`: Weight on distance transform when anchoring guide points (default: 2.0)
+- `--max-guide-span-A <float>`: Warn if guide span exceeds this distance (default: 60.0)
+- `--point-refine-window-A <float>`: Arc-length search window for point refinement (default: 0.8)
+- `--point-refine-dt-weight <float>`: DT weight for point refinement (default: 0.35)
+- `--recenter-radius-A <float>`: Local recenter search radius (default: 1.2)
+- `--recenter-dt-weight <float>`: DT weight for recentering (default: 1.0)
+- `--recenter-disp-weight <float>`: Displacement penalty for recentering (default: 0.35)
+- `--recenter-iters <int>`: Recenter iterations (default: 1)
+- `--rise-per-bp <float>`: Rise per base pair in Angstroms (default: 3.4)
+- `--target-spacing <float>`: Override spacing between points (Angstroms)
+- `--count-mode <round|ceil|floor>`: Auto point count mode when `--n-points` omitted
+- `--report <path>`: Optional text report path
+- `--out-pdb <path>`: Output PDB path (default: `dna_axis.pdb`)
+- `--out-mrc <path>`: Output axis MRC path (default: `dna_axis.mrc`)
+
+**Notes**:
+- If `--guides-pdb` or `--endpoints-pdb` is provided, the centerline is traced segment-by-segment between consecutive guide points.
+- If no guides are provided, the tool estimates endpoints from the binary mask and traces a single segment.
+
+**Example**:
+```bash
+crymodel dnaaxis extract \
+  --map 1BNA.mrc \
+  --threshold 0.26 \
+  --endpoints-pdb endpoints.pdb \
+  --out-pdb 1BNA_centerline.pdb \
+  --out-mrc 1BNA_centerline.mrc \
+  --report 1BNA_centerline_report.txt
+```
+
 ### dnabuild
 
 **Purpose**: Build an initial poly-AT dsDNA model from a dsDNA-only density map.
@@ -486,7 +544,7 @@ crymodel dnabuild build \
 **Options**:
 - `--out-pdb <path>`: Output PDB path (default: `dna_model.pdb`)
 - `--sequence-file <path>`: Optional file with two sequences (one per strand)
-- `--template-pdb <path>`: Template PDB for base-pair extraction (default: `data/DNA-TEMPLATES/1BNA.pdb`)
+- `--template-pdb <path>`: Template PDB for base-pair extraction (default: `data/DNA-TEMPLATES/AT-template.pdb`)
 - `--min-distance-vox <int>`: Minimum spacing between base pairs (voxels)
 - `--resolution <float>`: Template density resolution (Å)
 - `--output-swapped`: Also output swapped-strand model when sequences provided
@@ -504,6 +562,46 @@ crymodel dnabuild build \
   --n-bp 12 \
   --threshold 0.45 \
   --out-pdb dna_init.pdb
+```
+
+**2-bp template builder**:
+
+**Purpose**: Build a poly-AT dsDNA model using a rigid 2-bp template placed along a centerline.
+
+**Usage**:
+```bash
+crymodel dnabuild build-2bp \
+  --centerline-pdb <centerline.pdb> \
+  --template-2bp-pdb <2AT-template.pdb> \
+  --out-pdb <model.pdb> \
+  [OPTIONS]
+```
+
+**Options**:
+- `--map <map.mrc>`: Optional map for global phase optimization
+- `--n-bp <int>`: Override base-pair count (default: inferred from centerline length)
+- `--target-spacing <float>`: Target spacing between base pairs (default: 3.4)
+- `--twist-deg <float>`: Twist per base pair (default: 35.0)
+- `--trim-start-bp/--trim-end-bp <int>`: Trim base pairs from start/end
+- `--trim-start-A/--trim-end-A <float>`: Trim distance (Å) from start/end
+- `--global-phase-step-deg <float>`: Phase search step (default: 5.0)
+- `--no-global-phase-opt`: Disable global phase optimization
+- `--local-refine`: Enable per-step local refinement
+- `--local-shift-A <float>`: Max local shift (Å)
+- `--local-shift-step-A <float>`: Local shift step (Å)
+- `--local-twist-deg <float>`: Max local twist (deg)
+- `--local-twist-step-deg <float>`: Local twist step (deg)
+- `--backbone-only-score`: Use backbone atoms only when scoring
+- `--report <path>`: Optional report path
+
+**Example**:
+```bash
+crymodel dnabuild build-2bp \
+  --centerline-pdb 906_centerline_v7.pdb \
+  --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb \
+  --out-pdb 906_polyAT_2bp_model.pdb \
+  --map 906-DNA-map.mrc \
+  --report 906_polyAT_2bp_model_report.txt
 ```
 
 ---

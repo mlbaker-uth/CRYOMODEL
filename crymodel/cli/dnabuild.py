@@ -4,11 +4,12 @@ from pathlib import Path
 from typing import Optional, Tuple
 import typer
 
-from ..nucleotide.dna_builder import build_poly_at_dna
+from ..nucleotide.dna_builder import build_poly_at_dna, build_poly_at_from_2bp_centerline
 
 app = typer.Typer(no_args_is_help=True)
 
-DEFAULT_TEMPLATE_PDB = Path(__file__).resolve().parents[2] / "data" / "DNA-TEMPLATES" / "1BNA.pdb"
+DEFAULT_TEMPLATE_PDB = Path(__file__).resolve().parents[2] / "data" / "DNA-TEMPLATES" / "AT-template.pdb"
+DEFAULT_TEMPLATE_2BP_PDB = Path(__file__).resolve().parents[2] / "data" / "DNA-TEMPLATES" / "2AT-template.pdb"
 
 
 def _read_sequences(seq_file: Path) -> Tuple[Optional[str], Optional[str]]:
@@ -71,4 +72,78 @@ def build(
 
     for out in outputs:
         typer.echo(f"Wrote: {out}")
+
+
+@app.command("build-2bp")
+def build_2bp(
+    centerline_pdb: str = typer.Option(..., "--centerline-pdb", help="Centerline PDB (polyline)"),
+    template_2bp_pdb: str = typer.Option(
+        str(DEFAULT_TEMPLATE_2BP_PDB),
+        "--template-2bp-pdb",
+        help="2-bp template PDB (default: data/DNA-TEMPLATES/2AT-template.pdb)",
+    ),
+    out_pdb: str = typer.Option("polyAT_2bp.pdb", "--out-pdb", help="Output PDB path"),
+    report: Optional[str] = typer.Option(None, "--report", help="Optional report output path"),
+    map_path: Optional[str] = typer.Option(None, "--map", help="Optional map for phase optimization"),
+    threshold: Optional[float] = typer.Option(None, "--threshold", help="Threshold context for report"),
+    n_bp: Optional[int] = typer.Option(None, "--n-bp", help="Number of base pairs (optional)"),
+    target_spacing: float = typer.Option(3.4, "--target-spacing", help="Target spacing between base pairs (Å)"),
+    twist_deg: float = typer.Option(35.0, "--twist-deg", help="Twist per base pair (degrees)"),
+    trim_start_bp: int = typer.Option(0, "--trim-start-bp", help="Trim start by base pairs"),
+    trim_end_bp: int = typer.Option(0, "--trim-end-bp", help="Trim end by base pairs"),
+    trim_start_A: float = typer.Option(0.0, "--trim-start-A", help="Trim start by Å"),
+    trim_end_A: float = typer.Option(0.0, "--trim-end-A", help="Trim end by Å"),
+    global_phase_step_deg: float = typer.Option(5.0, "--global-phase-step-deg", help="Global phase step (deg)"),
+    no_global_phase_opt: bool = typer.Option(False, "--no-global-phase-opt", help="Disable global phase optimization"),
+    local_refine: bool = typer.Option(False, "--local-refine", help="Enable local refine"),
+    local_shift_A: float = typer.Option(1.0, "--local-shift-A", help="Local shift max (Å)"),
+    local_shift_step_A: float = typer.Option(0.5, "--local-shift-step-A", help="Local shift step (Å)"),
+    local_twist_deg: float = typer.Option(10.0, "--local-twist-deg", help="Local twist max (deg)"),
+    local_twist_step_deg: float = typer.Option(2.5, "--local-twist-step-deg", help="Local twist step (deg)"),
+    backbone_only_score: bool = typer.Option(False, "--backbone-only-score", help="Score using backbone only"),
+):
+    centerline_pdb = Path(centerline_pdb)
+    if not centerline_pdb.exists():
+        raise typer.BadParameter(f"Centerline PDB not found: {centerline_pdb}")
+
+    template_2bp_pdb = Path(template_2bp_pdb)
+    if not template_2bp_pdb.exists():
+        raise typer.BadParameter(f"Template PDB not found: {template_2bp_pdb}")
+
+    out_pdb = Path(out_pdb)
+    out_pdb.parent.mkdir(parents=True, exist_ok=True)
+
+    map_path_obj = Path(map_path) if map_path else None
+    if map_path_obj and not map_path_obj.exists():
+        raise typer.BadParameter(f"Map not found: {map_path_obj}")
+
+    report_path = Path(report) if report else None
+
+    out_path, report_out = build_poly_at_from_2bp_centerline(
+        centerline_pdb=centerline_pdb,
+        template_2bp_pdb=template_2bp_pdb,
+        out_pdb=out_pdb,
+        report_path=report_path,
+        map_path=map_path_obj,
+        threshold=threshold,
+        n_bp=n_bp,
+        target_spacing=target_spacing,
+        twist_deg=twist_deg,
+        trim_start_bp=trim_start_bp,
+        trim_end_bp=trim_end_bp,
+        trim_start_A=trim_start_A,
+        trim_end_A=trim_end_A,
+        global_phase_step_deg=global_phase_step_deg,
+        no_global_phase_opt=no_global_phase_opt,
+        local_refine=local_refine,
+        local_shift_A=local_shift_A,
+        local_shift_step_A=local_shift_step_A,
+        local_twist_deg=local_twist_deg,
+        local_twist_step_deg=local_twist_step_deg,
+        backbone_only_score=backbone_only_score,
+    )
+
+    typer.echo(f"Wrote: {out_path}")
+    if report_out:
+        typer.echo(f"Wrote: {report_out}")
 
