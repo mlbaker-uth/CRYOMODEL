@@ -32,6 +32,9 @@ crymodel assistant troubleshoot "empty output files" --tool findligands
 
 # Get resolution-based guidance
 crymodel assistant resolution 2.8
+
+# Summarize map/model and recent command history
+crymodel assistant diagnose --map map.mrc --model model.pdb
 ```
 
 ## Knowledge Base
@@ -50,6 +53,10 @@ The assistant uses a structured knowledge base containing:
 - Build model from sequence
 - Find and classify ligands
 - Trace backbone
+- Trace DNA centerline + build model
+- BaseHunter classification
+- Ligand QC (find ligands → validate)
+- DNA BaseHunter → build workflow
 
 ### Error Patterns
 - Import errors

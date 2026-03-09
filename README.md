@@ -41,4 +41,11 @@ Docs
 - `ASSISTANT_GUIDE.md` - assistant usage
 - `BASEHUNTER_TEMPLATES.md` - BaseHunter templates
 
+DNA Tools
+---------
+
+- `crymodel dnaaxis extract` - trace a dsDNA centerline from density (supports guide PDBs)
+- `crymodel dnabuild build` - build poly-AT dsDNA from a map
+- `crymodel dnabuild build-2bp` - build poly-AT dsDNA from a centerline using a 2-bp template
+
 

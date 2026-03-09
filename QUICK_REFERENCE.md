@@ -32,6 +32,8 @@ crymodel validate --model model.pdb --map map.mrc \
 | `pyhole` | Pore analysis | `--pdb`, `--top`, `--bottom`, `--centerline` |
 | `pyhole-plot` | Plot pore profiles | Input files, `--overlay`, `--grid` |
 | `basehunter` | Nucleotide comparison | `--input-file`, `--threshold` |
+| `dnaaxis` | Trace dsDNA centerline | `--map`, `--threshold`, `--guides-pdb` |
+| `dnabuild` | Build dsDNA models | `build`, `build-2bp`, `--map`, `--centerline-pdb` |
 | `pdbcom` | Domain COMs | `--model`, `--domains`, `--mass-weighted` |
 | `fitcompare` | Compare models | `--model-a`, `--model-b`, `--anchors` |
 | `fitprep` | Preflight check | `--model`, `--map`, `--apply` |
@@ -65,6 +67,17 @@ crymodel validate --model model.pdb --map map.mrc \
 ```bash
 crymodel fitcompare compare --model-a stateA.pdb --model-b stateB.pdb \
   --anchors "A:100-160"
+```
+
+### Trace DNA centerline
+```bash
+crymodel dnaaxis extract --map dna.mrc --threshold 0.25 --guides-pdb dna_markers.pdb
+```
+
+### Build poly-AT DNA from centerline (2-bp template)
+```bash
+crymodel dnabuild build-2bp --centerline-pdb centerline.pdb \
+  --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb --out-pdb dna_2bp.pdb
 ```
 
 ### Analyze pore

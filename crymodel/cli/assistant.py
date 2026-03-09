@@ -7,13 +7,18 @@ from typing import Optional, List, Any, Dict
 import typer
 import json
 import yaml
+import numpy as np
+import gemmi
 
 from ..assistant.assistant import CryoModelAssistant
+from .command_log import log_command
+from ..io.mrc import read_map
 
 app = typer.Typer(no_args_is_help=True)
 
 
 @app.command()
+@log_command("assistant ask")
 def ask(
     question: str = typer.Argument(..., help="Your question about CryoModel"),
     context_file: Optional[Path] = typer.Option(None, "--context", help="JSON file with context (files, errors, tool_name, etc.)"),
@@ -31,8 +36,9 @@ def ask(
     
     # Load context
     context = {}
+    context["cwd"] = str(Path.cwd())
     if context_file and context_file.exists():
-        context = json.load(open(context_file))
+        context.update(json.load(open(context_file)))
     
     if tool:
         context["tool_name"] = tool
@@ -48,12 +54,15 @@ def ask(
 
 
 @app.command()
+@log_command("assistant suggest")
 def suggest(
     goal: str = typer.Argument(..., help="What you want to accomplish"),
     files: Optional[str] = typer.Option(None, "--files", help="Comma-separated list of files you have"),
     generate: Optional[Path] = typer.Option(None, "--generate", help="Generate workflow.yaml file at this path"),
     resolution: Optional[float] = typer.Option(None, "--resolution", help="Map resolution (Å) for parameter defaults"),
     interactive: bool = typer.Option(True, "--interactive/--no-interactive", help="Prompt for additional parameters"),
+    no_history_defaults: bool = typer.Option(False, "--no-history-defaults", help="Disable history-based defaults"),
+    verbose_defaults: bool = typer.Option(False, "--verbose-defaults", help="Show default sources"),
 ):
     """Get workflow suggestions and optionally generate a workflow.yaml file.
     
@@ -127,7 +136,13 @@ def suggest(
                     typer.echo(f"\n**Parameters for {tool_name}:**")
                     for param_name, param_guidance in tool_info["parameter_guidance"].items():
                         # Extract default from guidance or use common defaults
-                        default = _get_default_parameter(param_name, tool_name, resolution, assistant)
+                        default, source = _get_default_parameter(
+                            param_name,
+                            tool_name,
+                            resolution,
+                            assistant,
+                            use_history=not no_history_defaults,
+                        )
                         if default is None:
                             default = 0.5  # Last resort fallback
                         
@@ -135,6 +150,8 @@ def suggest(
                             # Shorten guidance for prompt
                             guidance_short = param_guidance.split('.')[0][:50] if len(param_guidance) > 50 else param_guidance.split('.')[0]
                             prompt_text = f"  {param_name}"
+                            if verbose_defaults and source:
+                                typer.echo(f"  default from {source}: {default}")
                             if guidance_short:
                                 prompt_text += f" [{guidance_short}]"
                             value_str = typer.prompt(prompt_text, default=str(default))
@@ -155,7 +172,10 @@ def suggest(
                             if default is None:
                                 default = 0.5  # Last resort fallback
                             parameters[f"{tool_name}_{param_name}"] = default
-                            typer.echo(f"  {param_name}: {default} (default)")
+                            if verbose_defaults and source:
+                                typer.echo(f"  {param_name}: {default} (default from {source})")
+                            else:
+                                typer.echo(f"  {param_name}: {default} (default)")
         
         # Show summary
         typer.echo("\n" + "="*60)
@@ -220,8 +240,18 @@ def _map_files_to_workflow(file_list: List[str], workflow: Dict) -> Dict[str, st
     return mapping
 
 
-def _get_default_parameter(param_name: str, tool_name: str, resolution: float, assistant: CryoModelAssistant) -> Any:
+def _get_default_parameter(
+    param_name: str,
+    tool_name: str,
+    resolution: float,
+    assistant: CryoModelAssistant,
+    use_history: bool = True,
+) -> tuple[Any, Optional[str]]:
     """Get default parameter value based on name, tool, and resolution."""
+    if use_history:
+        history_value = _get_history_parameter_value(param_name, tool_name, Path.cwd())
+        if history_value is not None:
+            return history_value, "history"
     # Tool-specific defaults (matching actual CLI defaults)
     tool_defaults = {
         "affilter": {
@@ -269,7 +299,7 @@ def _get_default_parameter(param_name: str, tool_name: str, resolution: float, a
     # Get tool-specific defaults
     if tool_name in tool_defaults:
         if param_name in tool_defaults[tool_name]:
-            return tool_defaults[tool_name][param_name]
+            return tool_defaults[tool_name][param_name], "tool default"
     
     # Get resolution-specific guidance as fallback
     guidance = assistant.get_resolution_guidance(resolution)
@@ -284,7 +314,7 @@ def _get_default_parameter(param_name: str, tool_name: str, resolution: float, a
                 return (float(parts[0]) + float(parts[1])) / 2
             except:
                 pass
-        return value
+        return value, "resolution guidance"
     
     # Generic fallback (should rarely be used)
     generic_defaults = {
@@ -295,7 +325,111 @@ def _get_default_parameter(param_name: str, tool_name: str, resolution: float, a
         "n_fine_rotations": 500,
     }
     
-    return generic_defaults.get(param_name, None)
+    if param_name in generic_defaults:
+        return generic_defaults.get(param_name), "generic default"
+    return None, None
+
+
+def _get_history_parameter_value(param_name: str, tool_name: str, cwd: Path) -> Any:
+    history_path = cwd / ".crymodel_history.jsonl"
+    if not history_path.exists():
+        return None
+    records = _load_history_records(history_path, limit=300)
+    if not records:
+        return None
+
+    flag = param_name.replace("_", "-")
+    values = []
+    for record in records:
+        if record.get("tool") != tool_name:
+            continue
+        argv = record.get("argv") or []
+        values.extend(_extract_flag_values(argv, flag))
+    if not values:
+        return None
+
+    # Prefer most common value; break ties by most recent.
+    counts = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    max_count = max(counts.values())
+    candidates = {val for val, count in counts.items() if count == max_count}
+    for value in reversed(values):
+        if value in candidates:
+            return value
+    return values[-1]
+
+
+def _load_history_records(path: Path, limit: int = 300) -> List[Dict[str, Any]]:
+    records = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return records[-limit:] if limit > 0 else records
+
+
+def _extract_flag_values(argv: List[Any], flag: str) -> List[Any]:
+    values = []
+    flag_token = f"--{flag}"
+    neg_flag_token = f"--no-{flag}"
+    for idx, arg in enumerate(argv):
+        arg_str = str(arg)
+        if arg_str == neg_flag_token:
+            values.append(False)
+            continue
+        if arg_str.startswith(flag_token + "="):
+            raw = arg_str.split("=", 1)[1]
+            parsed = _parse_value(raw)
+            values.append(parsed)
+            continue
+        if arg_str == flag_token:
+            next_val = None
+            if idx + 1 < len(argv):
+                next_token = str(argv[idx + 1])
+                if _token_is_value(next_token):
+                    next_val = _parse_value(next_token)
+            if next_val is None:
+                values.append(True)
+            else:
+                values.append(next_val)
+    return values
+
+
+def _token_is_value(token: str) -> bool:
+    if token.startswith("--"):
+        return False
+    if _looks_like_number(token):
+        return True
+    # Treat as value if it's not a flag
+    return not token.startswith("-")
+
+
+def _looks_like_number(value: str) -> bool:
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _parse_value(raw: str) -> Any:
+    lowered = raw.lower()
+    if lowered in ["true", "false"]:
+        return lowered == "true"
+    if _looks_like_number(raw):
+        if "." in raw or "e" in raw or "E" in raw:
+            return float(raw)
+        try:
+            return int(raw)
+        except ValueError:
+            return float(raw)
+    return raw
 
 
 def _generate_workflow_yaml(
@@ -452,6 +586,7 @@ def _generate_workflow_yaml(
 
 
 @app.command()
+@log_command("assistant explain")
 def explain(
     tool_name: str = typer.Argument(..., help="Tool name to explain"),
     parameter: Optional[str] = typer.Option(None, "--parameter", help="Specific parameter to explain"),
@@ -464,7 +599,7 @@ def explain(
     """
     assistant = CryoModelAssistant()
     
-    context = {"tool_name": tool_name}
+    context = {"tool_name": tool_name, "cwd": str(Path.cwd())}
     if parameter:
         context["parameter"] = parameter
         question = f"What does the {parameter} parameter do in {tool_name}?"
@@ -476,6 +611,7 @@ def explain(
 
 
 @app.command()
+@log_command("assistant troubleshoot")
 def troubleshoot(
     error_message: str = typer.Argument(..., help="Error message or description of problem"),
     tool_name: Optional[str] = typer.Option(None, "--tool", help="Tool that produced the error"),
@@ -489,19 +625,19 @@ def troubleshoot(
     """
     assistant = CryoModelAssistant()
     
-    context = {"error_message": error_message}
+    context = {"error_message": error_message, "cwd": str(Path.cwd())}
     if tool_name:
         context["tool_name"] = tool_name
     
     if context_file and context_file.exists():
-        additional_context = json.load(open(context_file))
-        context.update(additional_context)
+        context.update(json.load(open(context_file)))
     
     answer = assistant.answer_question(f"Error: {error_message}", context)
     typer.echo(answer)
 
 
 @app.command()
+@log_command("assistant resolution")
 def resolution(
     resolution_value: float = typer.Argument(..., help="Map resolution in Å"),
 ):
@@ -524,6 +660,116 @@ def resolution(
             for param, value in params.items():
                 typer.echo(f"  {param}: {value}")
             typer.echo()
+
+
+@app.command()
+@log_command("assistant diagnose")
+def diagnose(
+    map_path: Optional[str] = typer.Option(None, "--map", help="Optional map (.mrc/.map) to inspect"),
+    model_path: Optional[str] = typer.Option(None, "--model", help="Optional model (.pdb/.cif) to inspect"),
+    history: bool = typer.Option(True, "--history/--no-history", help="Include recent command history"),
+    history_limit: int = typer.Option(5, "--history-limit", help="Number of recent commands to show"),
+    json_output: bool = typer.Option(False, "--json", help="Output JSON"),
+):
+    """Summarize map/model stats and recent command history."""
+    payload: Dict[str, Any] = {"cwd": str(Path.cwd())}
+    warnings: List[str] = []
+
+    if map_path:
+        map_path_obj = Path(map_path)
+        if not map_path_obj.exists():
+            raise typer.BadParameter(f"Map not found: {map_path_obj}")
+        mv = read_map(map_path_obj)
+        data = mv.data_zyx
+        payload["map"] = {
+            "path": str(map_path_obj),
+            "shape_zyx": list(data.shape),
+            "apix": float(mv.apix),
+            "origin_xyzA": [float(v) for v in mv.origin_xyzA],
+            "min": float(np.min(data)),
+            "max": float(np.max(data)),
+            "mean": float(np.mean(data)),
+            "std": float(np.std(data)),
+        }
+        map_extent = np.array(data.shape[::-1], dtype=float) * float(mv.apix)
+        map_min = mv.origin_xyzA.astype(float)
+        map_max = map_min + map_extent
+        payload["map"]["bbox_min"] = [float(v) for v in map_min]
+        payload["map"]["bbox_max"] = [float(v) for v in map_max]
+
+    if model_path:
+        model_path_obj = Path(model_path)
+        if not model_path_obj.exists():
+            raise typer.BadParameter(f"Model not found: {model_path_obj}")
+        st = gemmi.read_structure(str(model_path_obj))
+        atom_count = sum(1 for _ in st[0].all_atoms())
+        residue_count = sum(1 for _ in st[0].all_residues())
+        chain_count = len(st[0])
+        bbox = st[0].calculate_box()
+        payload["model"] = {
+            "path": str(model_path_obj),
+            "chains": chain_count,
+            "residues": residue_count,
+            "atoms": atom_count,
+            "bbox_min": [bbox.minimum.x, bbox.minimum.y, bbox.minimum.z],
+            "bbox_max": [bbox.maximum.x, bbox.maximum.y, bbox.maximum.z],
+        }
+
+    if "map" in payload and "model" in payload:
+        mmin = np.array(payload["map"]["bbox_min"], dtype=float)
+        mmax = np.array(payload["map"]["bbox_max"], dtype=float)
+        bbmin = np.array(payload["model"]["bbox_min"], dtype=float)
+        bbmax = np.array(payload["model"]["bbox_max"], dtype=float)
+        margin = float(payload["map"]["apix"]) * 2.0
+        if np.any(bbmin < (mmin - margin)) or np.any(bbmax > (mmax + margin)):
+            warnings.append("Model bounding box extends outside map volume (check origin/apix/alignment).")
+
+    if history:
+        history_path = Path.cwd() / ".crymodel_history.jsonl"
+        recent = []
+        if history_path.exists():
+            with open(history_path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        recent.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+        payload["history"] = recent[-history_limit:] if history_limit > 0 else recent
+
+    if json_output:
+        payload["warnings"] = warnings
+        typer.echo(json.dumps(payload, indent=2))
+        return
+
+    typer.echo("**Assistant Diagnose**")
+    typer.echo(f"- cwd: {payload['cwd']}")
+    if "map" in payload:
+        m = payload["map"]
+        typer.echo(f"- map: {m['path']}")
+        typer.echo(f"  shape_zyx: {m['shape_zyx']}, apix: {m['apix']}, origin: {m['origin_xyzA']}")
+        typer.echo(f"  min/max/mean/std: {m['min']:.4f} / {m['max']:.4f} / {m['mean']:.4f} / {m['std']:.4f}")
+    if "model" in payload:
+        mdl = payload["model"]
+        typer.echo(f"- model: {mdl['path']}")
+        typer.echo(f"  chains/residues/atoms: {mdl['chains']} / {mdl['residues']} / {mdl['atoms']}")
+        typer.echo(f"  bbox min/max: {mdl['bbox_min']} / {mdl['bbox_max']}")
+    if "history" in payload:
+        if payload["history"]:
+            typer.echo("- recent commands:")
+            for record in payload["history"]:
+                cmd = record.get("command", "unknown")
+                status = record.get("status", "unknown")
+                ts = record.get("timestamp", "unknown")
+                typer.echo(f"  - {ts} | {status} | {cmd}")
+        else:
+            typer.echo("- recent commands: none")
+    if warnings:
+        typer.echo("- warnings:")
+        for warning in warnings:
+            typer.echo(f"  - {warning}")
 
 
 if __name__ == "__main__":

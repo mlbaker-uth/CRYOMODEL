@@ -2,6 +2,7 @@
 """AI assistant for CryoModel guidance."""
 from __future__ import annotations
 
+import json
 import re
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
@@ -35,6 +36,7 @@ class CryoModelAssistant:
         """
         question_lower = question.lower()
         context = context or {}
+        context = self._augment_context_with_history(context)
         
         # Route to appropriate handler
         if any(phrase in question_lower for phrase in ["how do i", "how can i", "how to", "what steps"]):
@@ -49,6 +51,68 @@ class CryoModelAssistant:
             return self._explain_tool(question, context)
         else:
             return self._general_guidance(question, context)
+
+    def _augment_context_with_history(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        if context.get("disable_history"):
+            return context
+        if context.get("history"):
+            return context
+        cwd = context.get("cwd")
+        if cwd:
+            base = Path(cwd)
+        else:
+            base = Path.cwd()
+        history_path = base / ".crymodel_history.jsonl"
+        records = self._load_history(history_path, limit=100)
+        if not records:
+            return context
+        history_context = self._summarize_history(records)
+        context.update(history_context)
+        return context
+
+    def _load_history(self, path: Path, limit: int = 100) -> List[Dict[str, Any]]:
+        if not path.exists():
+            return []
+        records = []
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        return records[-limit:] if limit > 0 else records
+
+    def _summarize_history(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        recent_tools: List[str] = []
+        recent_files: List[str] = []
+        last_error = None
+        last_error_output = None
+
+        for record in reversed(records):
+            tool = record.get("tool")
+            if tool and tool not in recent_tools:
+                recent_tools.append(tool)
+            if record.get("status") == "error" and last_error is None:
+                last_error = record
+            if record.get("status") == "error" and not last_error_output:
+                last_error_output = record.get("output_log")
+            argv = record.get("argv") or []
+            for arg in argv:
+                arg_str = str(arg)
+                if "/" in arg_str or any(arg_str.lower().endswith(ext) for ext in [".mrc", ".map", ".pdb", ".cif", ".csv", ".json", ".yaml", ".yml"]):
+                    if arg_str not in recent_files:
+                        recent_files.append(arg_str)
+
+        return {
+            "history": records,
+            "recent_tools": recent_tools[:10],
+            "recent_files": recent_files[:10],
+            "last_error_record": last_error,
+            "last_error_output_log": last_error_output,
+        }
     
     def _suggest_workflow(self, question: str, context: Dict[str, Any]) -> str:
         """Suggest a workflow based on user goal."""
@@ -62,6 +126,14 @@ class CryoModelAssistant:
             goal = "find_and_classify_ligands"
         elif "trace" in question_lower or "backbone" in question_lower:
             goal = "trace_backbone"
+        elif "dna" in question_lower or "centerline" in question_lower:
+            goal = "trace_dna_centerline"
+        elif "basehunter" in question_lower or "purine" in question_lower or "pyrimidine" in question_lower:
+            goal = "basehunter_classify"
+        if "ligand" in question_lower and "validate" in question_lower:
+            goal = "ligand_qc"
+        if "dna" in question_lower and "basehunter" in question_lower and "build" in question_lower:
+            goal = "dna_basehunter_build"
         
         if goal and goal in self.workflow_templates:
             template = self.workflow_templates[goal]
@@ -79,6 +151,15 @@ class CryoModelAssistant:
                 response += "\n**Notes:**\n"
                 for note in template["notes"]:
                     response += f"- {note}\n"
+
+            recent_files = context.get("recent_files", [])
+            recent_tools = context.get("recent_tools", [])
+            if recent_files or recent_tools:
+                response += "\n**Context from recent runs in this folder:**\n"
+                if recent_tools:
+                    response += f"- Recent tools: {', '.join(recent_tools)}\n"
+                if recent_files:
+                    response += f"- Recent files: {', '.join(recent_files)}\n"
             
             return response
         
@@ -136,6 +217,17 @@ class CryoModelAssistant:
                 
                 if response != f"**Tool-specific troubleshooting for {tool_name}:**\n\n":
                     return response
+
+        last_error = context.get("last_error_record")
+        if last_error:
+            response = "**Recent error in this folder:**\n\n"
+            response += f"- Tool: {last_error.get('tool', 'unknown')}\n"
+            response += f"- Command: {last_error.get('command', 'unknown')}\n"
+            response += f"- Status: {last_error.get('status', 'unknown')}\n"
+            if last_error.get("output_log"):
+                response += f"- Output log: {last_error.get('output_log')}\n"
+            response += "\nIf this is the same issue, share the relevant lines from the output log."
+            return response
         
         return (
             "I couldn't find a specific match for this error. Here are general troubleshooting steps:\n\n"
@@ -249,7 +341,7 @@ class CryoModelAssistant:
     
     def _general_guidance(self, question: str, context: Dict[str, Any]) -> str:
         """Provide general guidance."""
-        return (
+        response = (
             "I'm here to help you use CryoModel effectively! I can:\n\n"
             "1. **Suggest workflows** - Tell me what you want to accomplish\n"
             "2. **Troubleshoot errors** - Share error messages and I'll help fix them\n"
@@ -262,6 +354,15 @@ class CryoModelAssistant:
             "- 'foldhunter gave me low correlation, what should I do?'\n"
             "- 'What is findligands used for?'"
         )
+        recent_tools = context.get("recent_tools", [])
+        recent_files = context.get("recent_files", [])
+        if recent_tools or recent_files:
+            response += "\n\nRecent activity detected in this folder:\n"
+            if recent_tools:
+                response += f"- Tools: {', '.join(recent_tools)}\n"
+            if recent_files:
+                response += f"- Files: {', '.join(recent_files)}\n"
+        return response
     
     def suggest_workflow(self, goal: str, available_files: List[str]) -> Dict[str, Any]:
         """Suggest a workflow based on goal and available files.
@@ -283,6 +384,14 @@ class CryoModelAssistant:
             template_key = "find_and_classify_ligands"
         elif "trace" in goal_lower or "backbone" in goal_lower:
             template_key = "trace_backbone"
+        elif "dna" in goal_lower or "centerline" in goal_lower:
+            template_key = "trace_dna_centerline"
+        elif "basehunter" in goal_lower or "purine" in goal_lower or "pyrimidine" in goal_lower:
+            template_key = "basehunter_classify"
+        if "ligand" in goal_lower and "validate" in goal_lower:
+            template_key = "ligand_qc"
+        if "dna" in goal_lower and "basehunter" in goal_lower and "build" in goal_lower:
+            template_key = "dna_basehunter_build"
         
         if template_key and template_key in self.workflow_templates:
             template = self.workflow_templates[template_key]

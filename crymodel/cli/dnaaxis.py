@@ -5,11 +5,13 @@ from pathlib import Path
 import typer
 
 from ..nucleotide.dna_axis import extract_medial_axis
+from .command_log import log_command
 
 app = typer.Typer(no_args_is_help=True, help="Trace a medial axis through a dsDNA density map")
 
 
 @app.command()
+@log_command("dnaaxis extract")
 def extract(
     map_path: str = typer.Option(..., "--map", help="Input map (.mrc) containing dsDNA"),
     threshold: float = typer.Option(..., "--threshold", help="Density threshold for axis extraction"),

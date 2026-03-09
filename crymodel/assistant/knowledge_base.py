@@ -375,6 +375,33 @@ WORKFLOW_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "Resolution parameter critical for accurate classification"
         ]
     },
+    "ligand_qc": {
+        "description": "Find ligands and validate model in density",
+        "prerequisites": ["density_map", "model_pdb"],
+        "steps": [
+            {
+                "step": 1,
+                "tool": "findligands",
+                "action": "Identify water and ligand density",
+                "command": "crymodel findligands --map target_map.mrc --model model.pdb --thresh 0.5 --ml-model trained_model --entry-resolution 2.8 --out-dir outputs/findligands"
+            },
+            {
+                "step": 2,
+                "tool": "predictligands",
+                "action": "Classify ligand components",
+                "command": "crymodel predictligands --ligands-pdb outputs/findligands/ligands.pdb --ligand-map outputs/findligands/ligands_map.mrc --model model.pdb --out-dir outputs/predictligands"
+            },
+            {
+                "step": 3,
+                "tool": "validate",
+                "action": "Validate model against map",
+                "command": "crymodel validate --model model.pdb --map target_map.mrc --out-dir outputs/validate"
+            }
+        ],
+        "notes": [
+            "Validation helps interpret ligand confidence in context of model quality"
+        ]
+    },
     
     "trace_backbone": {
         "description": "Trace protein backbone through density map",
@@ -396,6 +423,72 @@ WORKFLOW_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "notes": [
             "n_residues should match expected protein size",
             "Threshold may need adjustment based on map quality"
+        ]
+    },
+    "trace_dna_centerline": {
+        "description": "Trace dsDNA centerline and build a poly-AT model",
+        "prerequisites": ["density_map"],
+        "steps": [
+            {
+                "step": 1,
+                "tool": "dnaaxis",
+                "action": "Trace centerline through dsDNA density",
+                "command": "crymodel dnaaxis extract --map dna_map.mrc --threshold 0.25 --guides-pdb guides.pdb --out-pdb dna_axis.pdb --out-mrc dna_axis.mrc"
+            },
+            {
+                "step": 2,
+                "tool": "dnabuild",
+                "action": "Build poly-AT model from centerline",
+                "command": "crymodel dnabuild build-2bp --centerline-pdb dna_axis.pdb --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb --out-pdb dna_model.pdb"
+            }
+        ],
+        "notes": [
+            "Guides are recommended for curved DNA or noisy maps",
+            "Adjust threshold based on map filtering and blur"
+        ]
+    },
+    "dna_basehunter_build": {
+        "description": "Classify base pairs and build a poly-AT DNA model",
+        "prerequisites": ["density_map", "base_pair_list"],
+        "steps": [
+            {
+                "step": 1,
+                "tool": "basehunter",
+                "action": "Compare base-pair densities against templates",
+                "command": "crymodel basehunter compare --input-file base_pairs.txt --threshold 0.45 --out-dir outputs/basehunter"
+            },
+            {
+                "step": 2,
+                "tool": "dnaaxis",
+                "action": "Trace centerline through dsDNA density",
+                "command": "crymodel dnaaxis extract --map dna_map.mrc --threshold 0.25 --guides-pdb guides.pdb --out-pdb dna_axis.pdb --out-mrc dna_axis.mrc"
+            },
+            {
+                "step": 3,
+                "tool": "dnabuild",
+                "action": "Build poly-AT model from centerline",
+                "command": "crymodel dnabuild build-2bp --centerline-pdb dna_axis.pdb --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb --out-pdb dna_model.pdb"
+            }
+        ],
+        "notes": [
+            "Use BaseHunter outputs for QC of base-pair assignments",
+            "Adjust thresholds based on map filtering and blur"
+        ]
+    },
+    "basehunter_classify": {
+        "description": "Classify purine/pyrimidine base pairs with BaseHunter",
+        "prerequisites": ["density_map", "base_pair_list"],
+        "steps": [
+            {
+                "step": 1,
+                "tool": "basehunter",
+                "action": "Compare base-pair densities against templates",
+                "command": "crymodel basehunter compare --input-file base_pairs.txt --threshold 0.45 --out-dir outputs/basehunter"
+            }
+        ],
+        "notes": [
+            "Use per-pair thresholds in input file if map is heterogeneous",
+            "Template thresholds may differ from input thresholds"
         ]
     }
 }
@@ -444,6 +537,42 @@ ERROR_PATTERNS: Dict[str, Dict[str, Any]] = {
             "Ensure file extensions are correct (.mrc, .pdb, etc.)"
         ],
         "prevention": "Always use absolute paths or verify relative paths"
+    },
+    "permission_denied": {
+        "patterns": ["Permission denied", "permission error", "EACCES"],
+        "solutions": [
+            "Check file permissions and ownership",
+            "Write outputs to a directory you own",
+            "Avoid writing to system-protected folders"
+        ],
+        "prevention": "Use project-local output directories"
+    },
+    "invalid_mrc": {
+        "patterns": ["bad mrc", "CCP4 map", "unsupported map", "not a CCP4", "mrc header"],
+        "solutions": [
+            "Verify the map opens in ChimeraX/Phenix",
+            "Re-export or re-save map as MRC/CCP4",
+            "Check for corrupted or truncated files"
+        ],
+        "prevention": "Use standard MRC/CCP4 writers"
+    },
+    "mismatched_box": {
+        "patterns": ["shape mismatch", "different box", "incompatible dimensions"],
+        "solutions": [
+            "Resample maps to the same grid and voxel size",
+            "Check that map and templates share consistent box size",
+            "Verify apix/origin match before comparison"
+        ],
+        "prevention": "Normalize grids during preprocessing"
+    },
+    "threshold_too_high": {
+        "patterns": ["empty mask", "no voxels above threshold", "zero density after threshold"],
+        "solutions": [
+            "Lower threshold and re-run",
+            "Use histogram or map stats to pick a threshold",
+            "If map was low-pass filtered, re-scale intensities"
+        ],
+        "prevention": "Inspect map stats before choosing thresholds"
     },
     
     "coordinate_mismatch": {

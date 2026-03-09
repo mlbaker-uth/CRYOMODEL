@@ -7,6 +7,9 @@ app = typer.Typer(
     add_completion=False,
 )
 
+# Command logging
+from .command_log import log_command
+
 # Import and register subcommands
 from .findligands import findligands as _findligands
 from .predictligands import predict as _predictligands
@@ -27,6 +30,7 @@ from .workflow import run as _workflow_run, validate as _workflow_validate
 from .assistant import app as _assistant_app
 from .dnabuild import app as _dnabuild_app
 from .dnaaxis import app as _dnaaxis_app
+from .logs import app as _logs_app
 
 # Lazy imports for ML commands (only import when actually called)
 # This avoids PyTorch import issues when using non-ML commands
@@ -42,28 +46,33 @@ def _lazy_extract_features(*args, **kwargs):
     from .extract_features import extract
     return extract(*args, **kwargs)
 
-app.command("findligands")(_findligands)
-app.command("predictligands")(_predictligands)
-app.command("pathwalk")(_pathwalk)
-app.command("pathwalk-average")(_pathwalk_average)
-app.command("pyhole")(_pyhole)
-app.command("pyhole-plot")(_pyhole_plot)
-app.command("basehunter")(_basehunter)
-app.command("validate")(_validate)
-app.command("pdbcom")(_pdbcom)
-app.command("fitcompare")(_fitcompare)
-app.command("fitprep")(_fitprep)
-app.command("loopcloud")(_loopcloud)
-app.command("pathwalker2")(_pathwalker2)
-app.command("version")(_version)
+def _register(name: str, func):
+    app.command(name)(log_command(name)(func))
+
+
+_register("findligands", _findligands)
+_register("predictligands", _predictligands)
+_register("pathwalk", _pathwalk)
+_register("pathwalk-average", _pathwalk_average)
+_register("pyhole", _pyhole)
+_register("pyhole-plot", _pyhole_plot)
+_register("basehunter", _basehunter)
+_register("validate", _validate)
+_register("pdbcom", _pdbcom)
+_register("fitcompare", _fitcompare)
+_register("fitprep", _fitprep)
+_register("loopcloud", _loopcloud)
+_register("pathwalker2", _pathwalker2)
+_register("version", _version)
 # Register ML commands with lazy loading
-app.command("train-ml")(_lazy_train_ml)
-app.command("train-ensemble")(_lazy_train_ensemble)
-app.command("extract-features")(_lazy_extract_features)
-app.command("foldhunter")(_foldhunter)
-app.command("affilter")(_affilter)
-app.command("workflow")(_workflow_run)
-app.command("workflow-validate")(_workflow_validate)
+_register("train-ml", _lazy_train_ml)
+_register("train-ensemble", _lazy_train_ensemble)
+_register("extract-features", _lazy_extract_features)
+_register("foldhunter", _foldhunter)
+_register("affilter", _affilter)
+_register("workflow", _workflow_run)
+_register("workflow-validate", _workflow_validate)
 app.add_typer(_assistant_app, name="assistant")
 app.add_typer(_dnabuild_app, name="dnabuild")
 app.add_typer(_dnaaxis_app, name="dnaaxis")
+app.add_typer(_logs_app, name="log")

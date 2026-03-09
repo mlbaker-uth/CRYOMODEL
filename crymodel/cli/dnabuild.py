@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 import typer
 
 from ..nucleotide.dna_builder import build_poly_at_dna, build_poly_at_from_2bp_centerline
+from .command_log import log_command
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -20,6 +21,7 @@ def _read_sequences(seq_file: Path) -> Tuple[Optional[str], Optional[str]]:
 
 
 @app.command()
+@log_command("dnabuild build")
 def build(
     map_path: str = typer.Option(..., "--map", help="Input map (.mrc) containing dsDNA only"),
     n_basepairs: int = typer.Option(..., "--n-bp", help="Number of base pairs to build"),
@@ -75,6 +77,7 @@ def build(
 
 
 @app.command("build-2bp")
+@log_command("dnabuild build-2bp")
 def build_2bp(
     centerline_pdb: str = typer.Option(..., "--centerline-pdb", help="Centerline PDB (polyline)"),
     template_2bp_pdb: str = typer.Option(
