@@ -24,6 +24,7 @@ Version 0.1.0
    - [basehunter](#basehunter)
 7. [Domain Analysis](#domain-analysis)
    - [pdbcom](#pdbcom)
+   - [pdbdomain](#pdbdomain)
 8. [Model Comparison](#model-comparison)
    - [fitcompare](#fitcompare)
 9. [Preflight Tools](#preflight-tools)
@@ -614,7 +615,7 @@ crymodel dnabuild build-2bp \
 
 **Usage**:
 ```bash
-crymodel pdbcom compute \
+crymodel pdbcom \
   --model <model.pdb> \
   --domains <domains.json> \
   [OPTIONS]
@@ -632,8 +633,8 @@ crymodel pdbcom compute \
 **Domain JSON Format**:
 ```json
 {
-  "LBD-S1": {"A": "45-125"},
-  "LBD-S2": {"A": "260-330"},
+  "LBD-S1": {"A": ["45-125"]},
+  "LBD-S2": {"A": ["260-330"]},
   "TM": {"A": "350-600"},
   "CTD": {"A": "601-720"}
 }
@@ -645,12 +646,57 @@ crymodel pdbcom compute \
 
 **Example**:
 ```bash
-crymodel pdbcom compute \
+crymodel pdbcom \
   --model structure.pdb \
   --domains domains.json \
   --mass-weighted \
   --atoms all \
   --out-prefix domains_com
+```
+
+---
+
+### pdbdomain
+
+**Purpose**: Automatically identify structural domains from a PDB/mmCIF model.
+
+**Usage**:
+```bash
+crymodel pdbdomain \
+  --model <model.pdb> \
+  [OPTIONS]
+```
+
+**Required Arguments**:
+- `--model`: Input model PDB/mmCIF
+
+**Options**:
+- `--chain <id>`: Chain ID (default: first chain)
+- `--n-domains <int>`: Force number of domains (optional)
+- `--merge-distance <float>`: Merge distance in Å (default: 25.0)
+- `--seed-size <int>`: Residues per seed segment (default: 20)
+- `--min-domain-residues <int>`: Merge smaller domains into nearest (default: 50)
+- `--prefer-gaps/--no-prefer-gaps`: Prefer domain breaks at sequence gaps (default: True)
+- `--gap-window <int>`: Residues to search for nearest gap (default: 10)
+- `--gaps-only/--no-gaps-only`: Only allow domain breaks at sequence gaps (default: False)
+- `--sse-source <str>`: SSE source: `header`, `dssp`, `auto`, or `none` (default: header)
+- `--sse-window <int>`: Residues to search for a non‑SSE boundary (default: 10)
+- `--out-prefix <str>`: Output prefix (default: "domains")
+- `--write-pdb/--no-write-pdb`: Write PDB with domain IDs in B-factor (default: True)
+
+**Outputs**:
+- `*.json`: Domain specification compatible with `pdbcom`
+- `*.csv`: Per-residue domain assignments
+- `*.pdb`: PDB with domain IDs in B-factor (optional)
+
+**Example**:
+```bash
+crymodel pdbdomain \
+  --model structure.pdb \
+  --chain A \
+  --merge-distance 22 \
+  --seed-size 20 \
+  --out-prefix domains
 ```
 
 ---

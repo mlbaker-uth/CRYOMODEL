@@ -19,6 +19,7 @@ from .pyhole_plot import plot as _pyhole_plot
 from .basehunter import compare as _basehunter
 from .validate import validate as _validate
 from .pdbcom import compute as _pdbcom
+from .pdbdomain import identify as _pdbdomain
 from .fitcompare import compare as _fitcompare
 from .fitprep import check as _fitprep
 from .loopcloud import generate as _loopcloud
@@ -59,6 +60,7 @@ _register("pyhole-plot", _pyhole_plot)
 _register("basehunter", _basehunter)
 _register("validate", _validate)
 _register("pdbcom", _pdbcom)
+_register("pdbdomain", _pdbdomain)
 _register("fitcompare", _fitcompare)
 _register("fitprep", _fitprep)
 _register("loopcloud", _loopcloud)

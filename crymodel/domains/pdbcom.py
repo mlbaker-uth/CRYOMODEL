@@ -16,7 +16,7 @@ ELEMENT_MASSES = {
 }
 
 
-def parse_domain_spec(domains_json: Path) -> Dict[str, Dict[str, str]]:
+def parse_domain_spec(domains_json: Path) -> Dict[str, Dict[str, List[str]]]:
     """Parse domain specification from JSON file.
     
     Format:
@@ -26,7 +26,17 @@ def parse_domain_spec(domains_json: Path) -> Dict[str, Dict[str, str]]:
     }
     """
     with open(domains_json, 'r') as f:
-        return json.load(f)
+        payload = json.load(f)
+    # Normalize ranges to list form
+    normalized: Dict[str, Dict[str, List[str]]] = {}
+    for domain_name, chain_ranges in payload.items():
+        normalized[domain_name] = {}
+        for chain_id, ranges in chain_ranges.items():
+            if isinstance(ranges, list):
+                normalized[domain_name][chain_id] = ranges
+            else:
+                normalized[domain_name][chain_id] = [ranges]
+    return normalized
 
 
 def parse_residue_range(range_str: str) -> Tuple[int, int]:
@@ -115,7 +125,7 @@ def compute_com(
 
 def compute_domain_coms(
     structure: gemmi.Structure,
-    domains: Dict[str, Dict[str, str]],
+    domains: Dict[str, Dict[str, List[str]]],
     mass_weighted: bool = True,
     atom_filter: str = "all",
 ) -> Dict[str, Dict]:
@@ -135,10 +145,11 @@ def compute_domain_coms(
         all_atoms = []
         chain_ids = []
         
-        for chain_id, range_str in chain_ranges.items():
-            start_res, end_res = parse_residue_range(range_str)
-            atoms = get_atoms_in_range(structure, chain_id, start_res, end_res, atom_filter)
-            all_atoms.extend(atoms)
+        for chain_id, range_list in chain_ranges.items():
+            for range_str in range_list:
+                start_res, end_res = parse_residue_range(range_str)
+                atoms = get_atoms_in_range(structure, chain_id, start_res, end_res, atom_filter)
+                all_atoms.extend(atoms)
             chain_ids.append(chain_id)
         
         if len(all_atoms) == 0:

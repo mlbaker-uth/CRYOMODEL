@@ -35,6 +35,7 @@ crymodel validate --model model.pdb --map map.mrc \
 | `dnaaxis` | Trace dsDNA centerline | `--map`, `--threshold`, `--guides-pdb` |
 | `dnabuild` | Build dsDNA models | `build`, `build-2bp`, `--map`, `--centerline-pdb` |
 | `pdbcom` | Domain COMs | `--model`, `--domains`, `--mass-weighted` |
+| `pdbdomain` | Domain identification | `--model`, `--chain`, `--n-domains` |
 | `fitcompare` | Compare models | `--model-a`, `--model-b`, `--anchors` |
 | `fitprep` | Preflight check | `--model`, `--map`, `--apply` |
 | `loopcloud` | Loop modeling | `--model`, `--anchors`, `--sequence`, `--map` |
