@@ -8,6 +8,7 @@ import sys
 import time
 import traceback
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from typing import Callable, Optional, Any
 
@@ -42,6 +43,7 @@ def log_command(command_name: Optional[str] = None) -> Callable[[Callable[..., A
     """Decorator to log command execution, stdout/stderr, and status."""
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
         def wrapper(*args, **kwargs):
             start = time.time()
             cwd = os.getcwd()
