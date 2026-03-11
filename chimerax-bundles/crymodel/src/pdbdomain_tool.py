@@ -173,13 +173,27 @@ class PDBDomainTool(ToolInstance):
         self.session.logger.info(f"[CryoModel] {message}")
 
     def _run_domains(self):
-        model_path = Path(self.model_path.text()).expanduser()
-        if not model_path.exists():
-            self._log("Model file not found.")
+        model_path = Path(self.model_path.text()).expanduser() if self.model_path.text().strip() else None
+        structure = None
+        if model_path and model_path.exists():
+            structure = gemmi.read_structure(str(model_path))
+        else:
+            try:
+                from chimerax.atomic import AtomicStructure
+                models = self.session.models.list(type=AtomicStructure)
+                if models:
+                    structure = gemmi.read_structure(models[0].path)
+                    model_path = Path(models[0].path)
+                    self._log(f"Using open model: {model_path}")
+            except Exception:
+                structure = None
+        if structure is None:
+            self._log("Model file not found and no open models available.")
             return
 
         out_prefix = Path(self.out_prefix.text()).expanduser()
-        structure = gemmi.read_structure(str(model_path))
+        if not out_prefix.name:
+            out_prefix = Path("domains")
         chain_id = self.chain_id.text().strip() or (structure[0][0].name if len(structure[0]) > 0 else "")
         if not chain_id:
             self._log("No chain found.")
@@ -217,7 +231,10 @@ class PDBDomainTool(ToolInstance):
             write_domain_pdb(structure, chain_id, ranges_by_domain, out_prefix.with_suffix(".pdb"))
             domain_spec = {k: {chain_id: [f"{s}-{e}" if s != e else f"{s}" for s, e in ranges]} for k, ranges in ranges_by_domain.items()}
         else:
-            domain_file = Path(self.domain_path.text()).expanduser()
+            domain_file = Path(self.domain_path.text()).expanduser() if self.domain_path.text().strip() else None
+            if domain_file is None:
+                self._log("Domain file not provided and auto identification is disabled.")
+                return
             if not domain_file.exists():
                 self._log("Domain file not found.")
                 return
@@ -230,6 +247,7 @@ class PDBDomainTool(ToolInstance):
         self._display_coms(domain_coms, name="Domain COMs")
         self._log(f"Wrote: {com_prefix.with_suffix('.pdb')}")
         self._log(f"Wrote: {com_prefix.with_suffix('.csv')}")
+        self._log(f"Computed COMs: {len(domain_coms)} domains")
 
     def _display_coms(self, domain_coms: Dict[str, Dict], name: str):
         from chimerax.atomic import AtomicStructure, Element
@@ -324,7 +342,7 @@ class PDBDomainTool(ToolInstance):
             for row in plane_rows:
                 out.write(f"{row[0]},{row[1]:.3f},{row[2]:.3f}\n")
         self._log(f"Wrote: {out_csv}")
-        self._log("COM analysis complete.")
+        self._log(f"COM analysis complete: {len(rows)} pairs, {len(plane_rows)} domains.")
 
 
 def _load_domain_file(path: Path) -> Dict[str, Dict[str, List[str]]]:
