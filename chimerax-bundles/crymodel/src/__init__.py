@@ -2,6 +2,7 @@
 
 def register_command(logger):
     from chimerax.core.commands import CmdDesc, register, StringArg, FloatArg
+    from chimerax.core.commands import BoolArg
 
     def run(session, map_path: str, model_path: str, thresh: float = 2.5):
         try:
@@ -24,6 +25,19 @@ def register_command(logger):
         synopsis="Assign unmodeled density with CryoModel"
     )
     register("crymodel_findligands", desc, run)
+
+    # Domain identification / COM tool
+    def run_pdbdomain(session, show: bool = True):
+        from .pdbdomain_tool import PDBDomainTool
+        tool = PDBDomainTool(session, "CryoModel Domain Tool")
+        if show:
+            tool.tool_window.shown = True
+
+    desc_pdbdomain = CmdDesc(
+        optional=[("show", BoolArg)],
+        synopsis="Open CryoModel domain identification tool"
+    )
+    register("crymodel_pdbdomain", desc_pdbdomain, run_pdbdomain)
 
 def register(session):
     # ChimeraX entry point

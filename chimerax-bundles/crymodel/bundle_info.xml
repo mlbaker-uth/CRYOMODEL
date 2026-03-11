@@ -6,6 +6,7 @@
   <SrcDir>src</SrcDir>
   <Commands>
     <Command name="crymodel_findligands" synopsis="Assign unmodeled density with CryoModel" />
+    <Command name="crymodel_pdbdomain" synopsis="Domain identification and COM analysis" />
   </Commands>
   <Providers>
     <Provider name="CryoModel" type="python" module="__init__"/>
