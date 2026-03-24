@@ -29,6 +29,22 @@ class _Tee:
         for stream in self._streams:
             stream.flush()
 
+    def isatty(self) -> bool:
+        # Uvicorn logging checks this on sys.stdout/sys.stderr.
+        first = self._streams[0] if self._streams else None
+        return bool(getattr(first, "isatty", lambda: False)())
+
+    def fileno(self) -> int:
+        first = self._streams[0] if self._streams else None
+        if first is None or not hasattr(first, "fileno"):
+            raise OSError("No underlying file descriptor")
+        return first.fileno()
+
+    @property
+    def encoding(self) -> str:
+        first = self._streams[0] if self._streams else None
+        return getattr(first, "encoding", "utf-8")
+
 
 def _safe_timestamp() -> str:
     # Use local time for human readability and make it filesystem-safe.

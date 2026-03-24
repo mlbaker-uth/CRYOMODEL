@@ -39,7 +39,18 @@ class CryoModelAssistant:
         context = self._augment_context_with_history(context)
         
         # Route to appropriate handler
-        if any(phrase in question_lower for phrase in ["how do i", "how can i", "how to", "what steps"]):
+        if any(
+            phrase in question_lower
+            for phrase in [
+                "how do i",
+                "how can i",
+                "how should i",
+                "how to",
+                "what steps",
+                "workflow",
+                "suggest a workflow",
+            ]
+        ):
             return self._suggest_workflow(question, context)
         elif any(phrase in question_lower for phrase in ["error", "failed", "problem", "issue", "not working", "broken"]):
             return self._troubleshoot_error(question, context)

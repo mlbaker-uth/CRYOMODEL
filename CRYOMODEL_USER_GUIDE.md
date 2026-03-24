@@ -14,28 +14,30 @@ Version 0.1.0
    - [findligands](#findligands)
    - [predictligands](#predictligands)
    - [validate](#validate)
-4. [Pathwalking Tools](#pathwalking-tools)
+4. [Map Filtering](#map-filtering)
+   - [mapfilter](#mapfilter)
+5. [Pathwalking Tools](#pathwalking-tools)
    - [pathwalk](#pathwalk)
    - [pathwalk-average](#pathwalk-average)
-5. [Pore Analysis Tools](#pore-analysis-tools)
+6. [Pore Analysis Tools](#pore-analysis-tools)
    - [pyhole](#pyhole)
    - [pyhole-plot](#pyhole-plot)
-6. [Nucleotide Analysis](#nucleotide-analysis)
+7. [Nucleotide Analysis](#nucleotide-analysis)
    - [basehunter](#basehunter)
-7. [Domain Analysis](#domain-analysis)
+8. [Domain Analysis](#domain-analysis)
    - [pdbcom](#pdbcom)
    - [pdbdomain](#pdbdomain)
-8. [Model Comparison](#model-comparison)
+9. [Model Comparison](#model-comparison)
    - [fitcompare](#fitcompare)
-9. [Preflight Tools](#preflight-tools)
-   - [fitprep](#fitprep)
-10. [Loop Modeling](#loop-modeling)
+10. [Preflight Tools](#preflight-tools)
+    - [fitprep](#fitprep)
+11. [Loop Modeling](#loop-modeling)
     - [loopcloud](#loopcloud)
-11. [Machine Learning Tools](#machine-learning-tools)
+12. [Machine Learning Tools](#machine-learning-tools)
     - [extract-features](#extract-features)
     - [train-ml](#train-ml)
     - [train-ensemble](#train-ensemble)
-12. [Utility Commands](#utility-commands)
+13. [Utility Commands](#utility-commands)
     - [version](#version)
 
 ---
@@ -46,6 +48,7 @@ CryoModel is a comprehensive toolkit for cryo-EM structure modeling, validation,
 
 - **Ligand and water identification** with ML-based classification
 - **Model validation** with resolution-aware metrics
+- **Map filtering** (lowpass, highpass, bandpass, Gaussian, threshold, binary, Laplacian, median, bilateral, Butterworth, normalize)
 - **Pathwalking** for protein backbone tracing
 - **Pore analysis** for transmembrane channels
 - **Nucleotide density comparison**
@@ -216,6 +219,91 @@ crymodel validate \
   --fit-priors \
   --out-dir outputs
 ```
+
+---
+
+## Map Filtering
+
+### mapfilter
+
+**Purpose**: Apply common cryo-EM map filters. Takes an input map, a filter type, and options; writes a filtered map with the given output name. Useful for preprocessing (lowpass, normalize), masking (threshold, binary), denoising (median, bilateral, gaussian), or enhancement (laplacian, bandpass).
+
+**Commands**:
+- `crymodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` — apply a filter and write the result
+- `crymodel mapfilter list` — list all available filters and their options
+
+**Usage**:
+```bash
+crymodel mapfilter apply <input_map> <output_map> --filter <filter_type> [OPTIONS]
+crymodel mapfilter list
+```
+
+**Arguments**:
+- *input_map*: Input MRC/CCP4 map path
+- *output_map*: Output filtered map path
+
+**Common options** (depend on filter):
+- `--filter`, `-f`: Filter type (required for apply)
+- `--resolution`, `-r`: Resolution in Å (lowpass, highpass, butterworth-*)
+- `--low-res`, `--high-res`: Bandpass cutoffs in Å
+- `--sigma-vox`: Gaussian blur sigma or median size in voxels
+- `--median-size`: Median filter half-size (cubic 2×size+1)
+- `--threshold`, `-t`: Threshold value (threshold, binary)
+- `--below-value`: Value to set below threshold (default: 0)
+- `--sharpen-strength`: Strength for laplacian-sharpen (default: 1)
+- `--sigma-spatial`, `--sigma-range`: Bilateral filter parameters
+- `--butterworth-order`: Order for Butterworth/bandpass (default: 4)
+- `--gaussian-rolloff` / `--sharp-cutoff`: Use Gaussian or sharp cutoff for lowpass/highpass (default: Gaussian)
+
+**Included filters**
+
+| Filter | Description | Key options |
+|--------|-------------|-------------|
+| **lowpass** | Low-pass Fourier filter; attenuate frequencies beyond cutoff | `--resolution` (Å), `--gaussian-rolloff` / `--sharp-cutoff` |
+| **highpass** | High-pass Fourier filter; remove low frequencies | `--resolution` (Å) |
+| **bandpass** | Keep frequencies between two cutoffs (optional Butterworth) | `--low-res`, `--high-res` (Å), `--butterworth-order` |
+| **gaussian** | Spatial Gaussian blur | `--sigma-vox` |
+| **threshold** | Set values below threshold to a given value (e.g. 0) | `--threshold`, `--below-value` |
+| **binary** | Binary mask: 1 where density ≥ threshold, else 0 | `--threshold` |
+| **laplacian** | Laplacian (edge enhancement) | — |
+| **laplacian-sharpen** | Sharpen by subtracting scaled Laplacian | `--sharpen-strength` |
+| **median** | Median filter (noise reduction, edge-preserving) | `--median-size` or `--sigma-vox` |
+| **bilateral** | Edge-preserving bilateral filter (3D) | `--sigma-spatial`, `--sigma-range` |
+| **butterworth-lowpass** | Butterworth low-pass (smooth rolloff) | `--resolution`, `--butterworth-order` |
+| **butterworth-highpass** | Butterworth high-pass | `--resolution`, `--butterworth-order` |
+| **normalize** | Zero mean, unit variance (preprocessing) | — |
+
+**Examples**:
+```bash
+# Low-pass filter at 4 Å resolution
+crymodel mapfilter apply map.mrc lowpass_4A.mrc -f lowpass -r 4
+
+# Gaussian blur (sigma = 2 voxels)
+crymodel mapfilter apply map.mrc blurred.mrc -f gaussian --sigma-vox 2
+
+# Threshold: set density below 0.5 to 0
+crymodel mapfilter apply map.mrc masked.mrc -f threshold -t 0.5
+
+# Binary mask (density ≥ 0.3 → 1, else 0)
+crymodel mapfilter apply map.mrc binary.mrc -f binary -t 0.3
+
+# Bandpass 3–10 Å with Butterworth order 4
+crymodel mapfilter apply map.mrc band.mrc -f bandpass --low-res 10 --high-res 3 --butterworth-order 4
+
+# Laplacian sharpening
+crymodel mapfilter apply map.mrc sharp.mrc -f laplacian-sharpen --sharpen-strength 0.5
+
+# Median filter for noise reduction
+crymodel mapfilter apply map.mrc denoised.mrc -f median --median-size 2
+
+# Normalize to zero mean, unit variance
+crymodel mapfilter apply map.mrc normalized.mrc -f normalize
+
+# List all filters and options
+crymodel mapfilter list
+```
+
+**Output**: A single MRC/CCP4 map with the same grid and origin as the input, containing the filtered density.
 
 ---
 

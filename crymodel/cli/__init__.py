@@ -32,6 +32,9 @@ from .assistant import app as _assistant_app
 from .dnabuild import app as _dnabuild_app
 from .dnaaxis import app as _dnaaxis_app
 from .logs import app as _logs_app
+from .mapfilter import app as _mapfilter_app
+from .pathmeasure import app as _pathmeasure_app
+from .workflow_ui import app as _workflow_ui_app
 
 # Lazy imports for ML commands (only import when actually called)
 # This avoids PyTorch import issues when using non-ML commands
@@ -78,3 +81,6 @@ app.add_typer(_assistant_app, name="assistant")
 app.add_typer(_dnabuild_app, name="dnabuild")
 app.add_typer(_dnaaxis_app, name="dnaaxis")
 app.add_typer(_logs_app, name="log")
+app.add_typer(_mapfilter_app, name="mapfilter")
+app.add_typer(_pathmeasure_app, name="pathmeasure")
+app.add_typer(_workflow_ui_app, name="workflow-ui")

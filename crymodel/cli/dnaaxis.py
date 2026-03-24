@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -15,7 +16,7 @@ app = typer.Typer(no_args_is_help=True, help="Trace a medial axis through a dsDN
 def extract(
     map_path: str = typer.Option(..., "--map", help="Input map (.mrc) containing dsDNA"),
     threshold: float = typer.Option(..., "--threshold", help="Density threshold for axis extraction"),
-    n_points: int | None = typer.Option(None, "--n-points", help="Total points in final polyline (default: length/3.4Å)"),
+    n_points: Optional[int] = typer.Option(None, "--n-points", help="Total points in final polyline (default: length/3.4Å)"),
     guides_pdb: str = typer.Option("", "--guides-pdb", help="Ordered guide PDB (ATOM/HETATM records in file order)"),
     endpoints_pdb: str = typer.Option("", "--endpoints-pdb", help="Alias for a 2-point guide PDB"),
     power: float = typer.Option(3.0, "--power", help="Cost exponent for inverse DT weighting"),
@@ -35,7 +36,7 @@ def extract(
     recenter_disp_weight: float = typer.Option(0.35, "--recenter-disp-weight", help="Displacement penalty for recentering"),
     recenter_iters: int = typer.Option(1, "--recenter-iters", help="Recenter iterations"),
     rise_per_bp: float = typer.Option(3.4, "--rise-per-bp", help="Rise per base pair (Å)"),
-    target_spacing: float | None = typer.Option(None, "--target-spacing", help="Override spacing (Å)"),
+    target_spacing: Optional[float] = typer.Option(None, "--target-spacing", help="Override spacing (Å)"),
     count_mode: str = typer.Option("round", "--count-mode", help="Point count mode: round, ceil, floor"),
     report: str = typer.Option("", "--report", help="Optional report output path"),
     out_mrc: str = typer.Option("dna_axis.mrc", "--out-mrc", help="Output axis MRC path"),

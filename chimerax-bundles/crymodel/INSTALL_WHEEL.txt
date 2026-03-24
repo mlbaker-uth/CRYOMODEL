@@ -1,0 +1,15 @@
+CryoModel ChimeraX bundle – install via wheel (like pyHole)
+
+1. In ChimeraX, build the wheel:
+   devel clean /path/to/CRYOMODEL/chimerax-bundles/crymodel
+   devel build /path/to/CRYOMODEL/chimerax-bundles/crymodel
+
+2. Fix the wheel metadata so toolshed accepts it (run in a terminal):
+   cd /path/to/CRYOMODEL/chimerax-bundles/crymodel
+   python3 fix_wheel_metadata.py dist/cryomodel-0.1.0-py3-none-any.whl
+   (or: python3 fix_wheel_metadata.py   to use the first wheel in dist/)
+
+3. In ChimeraX, install the wheel:
+   toolshed install /path/to/CRYOMODEL/chimerax-bundles/crymodel/dist/cryomodel-0.1.0-py3-none-any.whl
+
+4. Restart ChimeraX. Open Tools → Structure Analysis → CryoModel Domain Tool.

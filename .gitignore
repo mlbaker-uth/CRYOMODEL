@@ -20,6 +20,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Local CLI history (machine-specific)
+.crymodel_history.jsonl
+
 # Logs and temp files
 *.log
 *.tmp

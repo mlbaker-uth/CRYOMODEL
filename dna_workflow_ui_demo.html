@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryoModel DNA Workflow UI Prototype</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    .topbar {
+      display: flex; gap: 10px; align-items: center; padding: 10px 12px;
+      border-bottom: 1px solid #ddd; background: #fafafa;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr) 420px;
+      gap: 10px;
+      height: calc(100vh - 52px);
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .panel { border: 1px solid #ddd; border-radius: 6px; overflow: auto; }
+    .panel h3 { margin: 0; padding: 10px; border-bottom: 1px solid #eee; background: #f7f7f7; font-size: 14px; }
+    .content { padding: 10px; }
+    .catalog-card, .workspace-card {
+      border: 1px solid #ccc; border-radius: 6px; padding: 10px; margin-bottom: 8px; background: #fff;
+    }
+    .catalog-card button { margin-top: 8px; }
+    .workspace-card { cursor: pointer; }
+    .workspace-card.selected { border-color: #4f8cff; box-shadow: 0 0 0 2px rgba(79,140,255,0.15); }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; margin-left: 8px;
+      background: #eee;
+    }
+    .badge.draft { background: #eee; color: #444; }
+    .badge.valid { background: #dff3df; color: #1e6b1e; }
+    .badge.invalid { background: #ffe4e4; color: #8a1f1f; }
+    .badge.running { background: #e5f0ff; color: #1f4d8a; }
+    .badge.success { background: #dff3df; color: #1e6b1e; }
+    .badge.error { background: #ffe4e4; color: #8a1f1f; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 12px; margin-bottom: 3px; color: #444; }
+    .field input, .field select, .field textarea {
+      width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #bbb; border-radius: 4px;
+      font-family: inherit; font-size: 13px;
+    }
+    .field .error { border-color: #d33; background: #fff8f8; }
+    .errtext { color: #b00020; font-size: 11px; margin-top: 3px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    button { padding: 6px 10px; border: 1px solid #bbb; border-radius: 5px; background: #fff; cursor: pointer; }
+    button.primary { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    .logbox { height: 180px; border: 1px solid #ddd; padding: 8px; border-radius: 4px; background: #fafafa; overflow: auto; }
+    .small { font-size: 12px; color: #555; }
+    @media (max-width: 1280px) {
+      .layout { grid-template-columns: 220px minmax(0,1fr) 360px; }
+    }
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <strong>CryoModel DNA Workflow UI Prototype</strong>
+    <span class="small">First pass (safe sandbox): no PathMeasure dependencies</span>
+    <label class="small">API</label>
+    <input id="apiBase" value="http://127.0.0.1:8010" style="width:220px;padding:4px 6px" />
+    <label class="small">CWD</label>
+    <input id="cwd" value="/Users/mbaker-local/Downloads/CRYOMODEL" style="width:320px;padding:4px 6px" />
+    <button id="runAllBtn" class="primary">Run All (A → B → C)</button>
+    <button id="clearBtn">Clear Workspace</button>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h3>Card Catalog</h3>
+      <div class="content" id="catalog"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Workspace</h3>
+      <div class="content" id="workspace"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Options</h3>
+      <div class="content" id="options"></div>
+    </div>
+  </div>
+
+  <script>
+    const SPECS = {
+      dnaaxis_extract: {
+        display_name: "DNA Axis",
+        description: "Extract DNA centerline from map",
+        command_template: 'crymodel dnaaxis extract --map "{map}" --threshold {threshold} --out-pdb "{out_pdb}" --out-mrc "{out_mrc}" {guides_arg}',
+        inputs: [
+          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" },
+          { id: "guides_pdb", label: "Guides PDB (optional)", required: false, artifact_type: "model.structure" }
+        ],
+        params: [
+          { id: "threshold", label: "Threshold", type: "float", required: true, default: 0.25, min: 0.0, max: 10.0 }
+        ],
+        outputs: [
+          { id: "out_pdb", label: "Axis PDB", default: "outputs/dnaaxis/dna_axis.pdb", artifact_type: "model.structure" },
+          { id: "out_mrc", label: "Axis MRC", default: "outputs/dnaaxis/dna_axis.mrc", artifact_type: "map.mrc" }
+        ],
+        arg_builders: {
+          guides_arg: { when_input_present: "guides_pdb", value_template: '--guides-pdb "{guides_pdb}"' }
+        }
+      },
+      dnabuild_build: {
+        display_name: "Build DNA",
+        description: "Build DNA model from extracted centerline",
+        command_template: 'crymodel dnabuild build --centerline-pdb "{centerline_pdb}" --map "{map}" --out-pdb "{out_pdb}" --resolution {resolution} {threshold_arg}',
+        inputs: [
+          { id: "centerline_pdb", label: "Centerline PDB", required: true, artifact_type: "model.structure" },
+          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" }
+        ],
+        params: [
+          { id: "resolution", label: "Resolution (Å)", type: "float", required: true, default: 3.0, min: 0.5, max: 20.0 },
+          { id: "threshold", label: "Threshold (optional)", type: "float", required: false, default: null, min: 0.0, max: 10.0 }
+        ],
+        outputs: [
+          { id: "out_pdb", label: "Built DNA PDB", default: "outputs/dnabuild/dna_initial.pdb", artifact_type: "model.structure" }
+        ],
+        arg_builders: {
+          threshold_arg: { when_input_present: "threshold", value_template: "--threshold {threshold}" }
+        }
+      },
+      basehunter_run: {
+        display_name: "BaseHunter",
+        description: "Classify bases and generate summary table",
+        command_template: 'crymodel basehunter --map "{map}" --model "{model}" --out-dir "{out_dir}" --resolution {resolution} {chain_arg}',
+        inputs: [
+          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" },
+          { id: "model", label: "Model PDB", required: true, artifact_type: "model.structure" }
+        ],
+        params: [
+          { id: "resolution", label: "Resolution (Å)", type: "float", required: true, default: 3.0, min: 0.5, max: 20.0 },
+          { id: "chain", label: "Chain (optional)", type: "string", required: false, default: null }
+        ],
+        outputs: [
+          { id: "out_dir", label: "Output Directory", default: "outputs/basehunter", artifact_type: "dir" },
+          { id: "scores_csv", label: "Scores CSV", default: "outputs/basehunter/basehunter_scores.csv", artifact_type: "table.csv" },
+          { id: "summary_json", label: "Summary JSON", default: "outputs/basehunter/basehunter_summary.json", artifact_type: "json" }
+        ],
+        arg_builders: {
+          chain_arg: { when_input_present: "chain", value_template: "--chain {chain}" }
+        }
+      }
+    };
+
+    const ORDER = ["dnaaxis_extract", "dnabuild_build", "basehunter_run"];
+
+    const state = {
+      cards: [],
+      selectedCardId: null,
+      nextId: 1
+    };
+
+    function addCard(jobType) {
+      const spec = SPECS[jobType];
+      const cardId = `card_${state.nextId++}`;
+      const inputs = {};
+      for (const i of spec.inputs) inputs[i.id] = { mode: "manual", value: "", source: null };
+      const params = {};
+      for (const p of spec.params) params[p.id] = p.default;
+      const outputsResolved = {};
+      const outputTypes = {};
+      for (const o of spec.outputs) {
+        outputsResolved[o.id] = o.default;
+        outputTypes[o.id] = o.artifact_type || "";
+      }
+      const card = {
+        card_id: cardId,
+        job_type: jobType,
+        run_state: "draft",
+        validation_state: "invalid",
+        inputs,
+        params,
+        outputs: { resolved: outputsResolved, types: outputTypes },
+        last_run: { status: "", log: "", command: "" },
+        validation: { ok: false, errors: [], command: "" }
+      };
+      state.cards.push(card);
+      state.selectedCardId = cardId;
+      render();
+    }
+
+    function getCard(cardId) {
+      return state.cards.find(c => c.card_id === cardId) || null;
+    }
+
+    function getSelectedCard() {
+      return getCard(state.selectedCardId);
+    }
+
+    function availableInheritedSources(card, inputSpec) {
+      const idx = state.cards.findIndex(c => c.card_id === card.card_id);
+      if (idx < 0) return [];
+      const prior = state.cards.slice(0, idx);
+      const out = [];
+      for (const c of prior) {
+        for (const [oid, otype] of Object.entries((c.outputs && c.outputs.types) || {})) {
+          if (inputSpec.artifact_type && otype && inputSpec.artifact_type !== otype) continue;
+          out.push({
+            label: `${SPECS[c.job_type].display_name} (${c.card_id}) :: ${oid}`,
+            source: { card_id: c.card_id, output_id: oid }
+          });
+        }
+      }
+      return out;
+    }
+
+    function validateAndResolve(card) {
+      const spec = SPECS[card.job_type];
+      const errors = [];
+      const ctx = {};
+
+      // inputs
+      for (const inputSpec of spec.inputs) {
+        const b = card.inputs[inputSpec.id] || { mode: "manual", value: "" };
+        if (b.mode === "manual") {
+          const val = (b.value ?? "").toString().trim();
+          if (inputSpec.required && !val) {
+            errors.push({ code: "MISSING_REQUIRED_INPUT", field: inputSpec.id, message: `Required input '${inputSpec.id}' is missing.` });
+          } else if (val) {
+            ctx[inputSpec.id] = val;
+          }
+        } else if (b.mode === "inherited") {
+          const src = b.source || {};
+          const srcCard = getCard(src.card_id);
+          if (!srcCard) {
+            errors.push({ code: "INHERIT_SOURCE_NOT_FOUND", field: inputSpec.id, message: `Source card not found for '${inputSpec.id}'.` });
+            continue;
+          }
+          if (srcCard.run_state !== "success") {
+            errors.push({ code: "INHERIT_SOURCE_NOT_READY", field: inputSpec.id, message: `Source card is not successful for '${inputSpec.id}'.` });
+            continue;
+          }
+          const val = ((srcCard.outputs || {}).resolved || {})[src.output_id];
+          if (!val) {
+            errors.push({ code: "INHERIT_SOURCE_NOT_FOUND", field: inputSpec.id, message: `Source output missing for '${inputSpec.id}'.` });
+            continue;
+          }
+          const outType = (((srcCard.outputs || {}).types || {})[src.output_id]) || "";
+          if (inputSpec.artifact_type && outType && inputSpec.artifact_type !== outType) {
+            errors.push({ code: "INHERIT_TYPE_MISMATCH", field: inputSpec.id, message: `Type mismatch for inherited '${inputSpec.id}'.` });
+            continue;
+          }
+          ctx[inputSpec.id] = val;
+        }
+      }
+
+      // params
+      for (const p of spec.params) {
+        let raw = card.params[p.id];
+        if ((raw === null || raw === undefined || raw === "") && p.required && p.default !== null && p.default !== undefined) {
+          raw = p.default;
+          card.params[p.id] = raw;
+        }
+        if (p.required && (raw === null || raw === undefined || raw === "")) {
+          errors.push({ code: "MISSING_REQUIRED_PARAM", field: p.id, message: `Required parameter '${p.id}' is missing.` });
+          continue;
+        }
+        if (raw === null || raw === undefined || raw === "") continue;
+        let v = raw;
+        if (p.type === "float") {
+          v = Number(raw);
+          if (!Number.isFinite(v)) {
+            errors.push({ code: "INVALID_PARAM_TYPE", field: p.id, message: `Invalid numeric value for '${p.id}'.` });
+            continue;
+          }
+        }
+        if (p.type === "int") {
+          v = parseInt(raw, 10);
+          if (!Number.isFinite(v)) {
+            errors.push({ code: "INVALID_PARAM_TYPE", field: p.id, message: `Invalid integer value for '${p.id}'.` });
+            continue;
+          }
+        }
+        if (typeof v === "number") {
+          if (p.min !== undefined && v < p.min) errors.push({ code: "PARAM_OUT_OF_RANGE", field: p.id, message: `'${p.id}' below min ${p.min}.` });
+          if (p.max !== undefined && v > p.max) errors.push({ code: "PARAM_OUT_OF_RANGE", field: p.id, message: `'${p.id}' above max ${p.max}.` });
+        }
+        ctx[p.id] = v;
+      }
+
+      for (const o of spec.outputs) {
+        ctx[o.id] = ((card.outputs || {}).resolved || {})[o.id] || o.default || "";
+      }
+
+      if (spec.arg_builders) {
+        for (const [name, b] of Object.entries(spec.arg_builders)) {
+          if (ctx[b.when_input_present]) {
+            let t = b.value_template;
+            for (const [k, v] of Object.entries(ctx)) t = t.replaceAll(`{${k}}`, String(v));
+            ctx[name] = t;
+          } else {
+            ctx[name] = "";
+          }
+        }
+      }
+
+      let cmd = spec.command_template;
+      for (const [k, v] of Object.entries(ctx)) cmd = cmd.replaceAll(`{${k}}`, String(v));
+      const unresolved = (cmd.match(/\{[^{}]+\}/g) || []);
+      if (unresolved.length) {
+        for (const tok of unresolved) errors.push({ code: "TEMPLATE_TOKEN_UNRESOLVED", field: tok, message: `Unresolved token ${tok}` });
+      }
+      cmd = cmd.split(/\s+/).filter(Boolean).join(" ");
+
+      const ok = errors.length === 0;
+      card.validation = { ok, errors, command: cmd };
+      card.validation_state = ok ? "valid" : "invalid";
+      if (card.run_state === "draft" && ok) card.run_state = "ready";
+      if (card.run_state === "ready" && !ok) card.run_state = "draft";
+      return card.validation;
+    }
+
+    async function runCard(cardId) {
+      const card = getCard(cardId);
+      if (!card) return;
+      const v = validateAndResolve(card);
+      render();
+      if (!v.ok) return;
+
+      card.run_state = "running";
+      card.last_run.status = "running";
+      card.last_run.command = v.command;
+      card.last_run.log = `[${new Date().toLocaleTimeString()}] Running:\n${v.command}\n`;
+      render();
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const cwd = document.getElementById("cwd").value.trim();
+      try {
+        const startResp = await fetch(`${api}/ui/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ card_id: card.card_id, command: v.command, cwd })
+        });
+        const startData = await startResp.json();
+        if (!startResp.ok) throw new Error(startData.detail || JSON.stringify(startData));
+        const runId = startData.run_id;
+        card.last_run.run_id = runId;
+
+        let done = false;
+        while (!done) {
+          const [sResp, lResp] = await Promise.all([
+            fetch(`${api}/ui/status/${runId}`),
+            fetch(`${api}/ui/log/${runId}`)
+          ]);
+          const sData = await sResp.json();
+          const lData = await lResp.json();
+          if (lResp.ok) card.last_run.log = lData.log || card.last_run.log;
+          if (sResp.ok) {
+            card.last_run.status = sData.status;
+            if (sData.status === "success" || sData.status === "error") {
+              done = true;
+              card.run_state = sData.status;
+            } else {
+              card.run_state = "running";
+            }
+          }
+          render();
+          if (!done) await new Promise(r => setTimeout(r, 1000));
+        }
+      } catch (err) {
+        // Safe fallback to simulated run if backend isn't available.
+        card.last_run.log += `\n[ui] backend unavailable, falling back to simulation:\n${String(err)}\n`;
+        await new Promise(r => setTimeout(r, 700));
+        card.run_state = "success";
+        card.last_run.status = "success";
+        card.last_run.log += `[${new Date().toLocaleTimeString()}] Simulated success.\n`;
+        render();
+      }
+    }
+
+    async function runAll() {
+      for (const jt of ORDER) {
+        const c = state.cards.find(x => x.job_type === jt);
+        if (!c) continue;
+        await runCard(c.card_id);
+        if (c.run_state === "error" || c.validation_state === "invalid") break;
+      }
+    }
+
+    function setInputMode(cardId, inputId, mode) {
+      const card = getCard(cardId);
+      if (!card) return;
+      card.inputs[inputId].mode = mode;
+      if (mode === "manual") card.inputs[inputId].source = null;
+      validateAndResolve(card);
+      render();
+    }
+
+    function setInheritedSource(cardId, inputId, cardSrcId, outputId) {
+      const card = getCard(cardId);
+      if (!card) return;
+      card.inputs[inputId].mode = "inherited";
+      card.inputs[inputId].source = { card_id: cardSrcId, output_id: outputId };
+      validateAndResolve(card);
+      render();
+    }
+
+    function setInputValue(cardId, inputId, value) {
+      const card = getCard(cardId);
+      if (!card) return;
+      card.inputs[inputId].value = value;
+      validateAndResolve(card);
+      render();
+    }
+
+    function setParamValue(cardId, pid, value) {
+      const card = getCard(cardId);
+      if (!card) return;
+      card.params[pid] = value;
+      validateAndResolve(card);
+      render();
+    }
+
+    function renderCatalog() {
+      const el = document.getElementById("catalog");
+      el.innerHTML = "";
+      for (const [jobType, spec] of Object.entries(SPECS)) {
+        const d = document.createElement("div");
+        d.className = "catalog-card";
+        d.innerHTML = `
+          <strong>${spec.display_name}</strong>
+          <div class="small">${spec.description}</div>
+          <button>Add Card</button>
+        `;
+        d.querySelector("button").addEventListener("click", () => addCard(jobType));
+        el.appendChild(d);
+      }
+    }
+
+    function renderWorkspace() {
+      const el = document.getElementById("workspace");
+      el.innerHTML = "";
+      if (!state.cards.length) {
+        el.innerHTML = `<div class="small">No cards yet. Add from catalog.</div>`;
+        return;
+      }
+      for (const c of state.cards) {
+        const spec = SPECS[c.job_type];
+        validateAndResolve(c);
+        const d = document.createElement("div");
+        d.className = "workspace-card" + (state.selectedCardId === c.card_id ? " selected" : "");
+        d.innerHTML = `
+          <div>
+            <strong>${spec.display_name}</strong>
+            <span class="badge ${c.run_state}">${c.run_state}</span>
+            <span class="badge ${c.validation_state}">${c.validation_state}</span>
+          </div>
+          <div class="small">${c.card_id}</div>
+          <div class="small">${spec.description}</div>
+        `;
+        d.addEventListener("click", () => {
+          state.selectedCardId = c.card_id;
+          render();
+        });
+        el.appendChild(d);
+      }
+    }
+
+    function renderOptions() {
+      const el = document.getElementById("options");
+      const card = getSelectedCard();
+      if (!card) {
+        el.innerHTML = `<div class="small">Select a card in workspace.</div>`;
+        return;
+      }
+      const spec = SPECS[card.job_type];
+      const v = validateAndResolve(card);
+
+      const errByField = {};
+      for (const e of v.errors) {
+        if (!errByField[e.field]) errByField[e.field] = [];
+        errByField[e.field].push(e.message);
+      }
+
+      let html = `<div><strong>${spec.display_name}</strong> <span class="small">(${card.card_id})</span></div>`;
+      html += `<div class="small" style="margin-bottom:8px">${spec.description}</div>`;
+
+      html += `<h4>Inputs</h4>`;
+      for (const inp of spec.inputs) {
+        const b = card.inputs[inp.id];
+        const fieldErr = errByField[inp.id] || [];
+        const sources = availableInheritedSources(card, inp);
+        html += `<div class="field">
+          <label>${inp.label}${inp.required ? " *" : ""}</label>
+          <div class="row">
+            <select id="mode_${inp.id}">
+              <option value="manual" ${b.mode === "manual" ? "selected" : ""}>Manual</option>
+              <option value="inherited" ${b.mode === "inherited" ? "selected" : ""}>Inherited</option>
+            </select>
+            ${b.mode === "manual"
+              ? `<input id="input_${inp.id}" class="${fieldErr.length ? "error" : ""}" value="${(b.value ?? "").toString().replace(/"/g, "&quot;")}" />`
+              : `<select id="src_${inp.id}" class="${fieldErr.length ? "error" : ""}">
+                  <option value="">Select source...</option>
+                  ${sources.map(s => {
+                    const val = `${s.source.card_id}::${s.source.output_id}`;
+                    const sel = b.source && b.source.card_id === s.source.card_id && b.source.output_id === s.source.output_id ? "selected" : "";
+                    return `<option value="${val}" ${sel}>${s.label}</option>`;
+                  }).join("")}
+                </select>`
+            }
+          </div>
+          ${fieldErr.map(m => `<div class="errtext">${m}</div>`).join("")}
+        </div>`;
+      }
+
+      html += `<h4>Parameters</h4>`;
+      for (const p of spec.params) {
+        const val = card.params[p.id] ?? "";
+        const fieldErr = errByField[p.id] || [];
+        html += `<div class="field">
+          <label>${p.label}${p.required ? " *" : ""}</label>
+          <input id="param_${p.id}" class="${fieldErr.length ? "error" : ""}" value="${String(val).replace(/"/g, "&quot;")}" />
+          ${fieldErr.map(m => `<div class="errtext">${m}</div>`).join("")}
+        </div>`;
+      }
+
+      html += `<h4>Command Preview</h4><div class="mono" style="border:1px solid #ddd;padding:8px;border-radius:4px;background:#fafafa">${v.command || "(invalid)"}</div>`;
+
+      html += `<div class="buttons">
+        <button id="validateBtn">Validate</button>
+        <button id="runBtn" class="primary" ${v.ok ? "" : "disabled"}>${card.run_state === "running" ? "Running..." : "Run Card"}</button>
+      </div>`;
+
+      html += `<h4 style="margin-top:12px">Run Log</h4><div class="logbox mono">${(card.last_run.log || "").replace(/</g,"&lt;")}</div>`;
+
+      el.innerHTML = html;
+
+      // wire events
+      for (const inp of spec.inputs) {
+        const modeSel = document.getElementById(`mode_${inp.id}`);
+        modeSel.addEventListener("change", (e) => setInputMode(card.card_id, inp.id, e.target.value));
+        if (card.inputs[inp.id].mode === "manual") {
+          const input = document.getElementById(`input_${inp.id}`);
+          input.addEventListener("input", (e) => setInputValue(card.card_id, inp.id, e.target.value));
+        } else {
+          const src = document.getElementById(`src_${inp.id}`);
+          src.addEventListener("change", (e) => {
+            const v = e.target.value;
+            if (!v) return setInheritedSource(card.card_id, inp.id, "", "");
+            const [cid, oid] = v.split("::");
+            setInheritedSource(card.card_id, inp.id, cid, oid);
+          });
+        }
+      }
+      for (const p of spec.params) {
+        document.getElementById(`param_${p.id}`).addEventListener("input", (e) => setParamValue(card.card_id, p.id, e.target.value));
+      }
+      document.getElementById("validateBtn").addEventListener("click", () => {
+        validateAndResolve(card);
+        render();
+      });
+      document.getElementById("runBtn").addEventListener("click", () => runCard(card.card_id));
+    }
+
+    function render() {
+      renderCatalog();
+      renderWorkspace();
+      renderOptions();
+    }
+
+    document.getElementById("runAllBtn").addEventListener("click", runAll);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      state.cards = [];
+      state.selectedCardId = null;
+      state.nextId = 1;
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
+

@@ -41,6 +41,12 @@ Docs
 - `ASSISTANT_GUIDE.md` - assistant usage
 - `BASEHUNTER_TEMPLATES.md` - BaseHunter templates
 
+Map filtering
+-------------
+
+- `crymodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` - apply a filter (lowpass, highpass, bandpass, gaussian, threshold, binary, laplacian, median, bilateral, butterworth-lowpass/highpass, normalize)
+- `crymodel mapfilter list` - list available filters and options
+
 DNA Tools
 ---------
 

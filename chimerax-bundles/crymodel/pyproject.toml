@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools", "wheel", "ChimeraX-BundleBuilder"]
+build-backend = "chimerax.bundle_builder.cx_pep517"
+
+[project]
+name = "chimerax-cryomodel"
+version = "0.1.0"
+description = "Unified cryo-EM modeling toolkit"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Matthew L. Baker", email = "matthew.baker@uth.tmc.edu" }]
+requires-python = ">=3.7"
+dynamic = ["classifiers"]
+
+[project.urls]
+Homepage = "https://github.com/mlbaker-uth/CRYOMODEL"
+
+[tool.chimerax]
+module-name-override = "cryomodel"
+pure = true
+min-session-version = 1
+max-session-version = 1
+custom-init = true
+categories = ["Volume Data", "Structural Analysis"]
+classifiers = []
+
+[tool.chimerax.command.crymodel_findligands]
+category = "Volume Data"
+description = "Assign unmodeled density with CryoModel"
+
+[tool.chimerax.command.crymodel_pdbdomain]
+category = "Volume Data"
+description = "Domain identification and COM analysis"
+
+[tool.chimerax.tool."CryoModel Domain Tool"]
+category = "Structural Analysis"
+description = "Domain identification and COM analysis"

@@ -1,0 +1,1452 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PathMeasure Minimal Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+    .panel { border: 1px solid #ccc; padding: 8px; margin-bottom: 10px; border-radius: 4px; }
+    input, button, select { padding: 6px; }
+    #layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 32vw);
+      gap: 12px;
+      align-items: start;
+    }
+    #sidePanel {
+      max-height: calc(100vh - 190px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+    #wrap { position: relative; display: inline-block; border: 1px solid #999; max-width: 100%; overflow: auto; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #imgCanvas { z-index: 1; }
+    #overlayCanvas { z-index: 2; cursor: crosshair; }
+    #log { white-space: pre-wrap; background: #f3f3f3; padding: 8px; border: 1px solid #ddd; max-width: 900px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #ddd; padding: 4px; text-align: left; }
+    tr.selected { background: #e7f1ff; }
+    .muted { color: #666; font-size: 12px; }
+    @media (max-width: 1400px) {
+      #layout {
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 36vw);
+      }
+    }
+    @media (max-width: 1180px) {
+      #layout {
+        grid-template-columns: 1fr;
+      }
+      #sidePanel {
+        max-height: none;
+        overflow: visible;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>PathMeasure Minimal Demo</h2>
+  <div class="panel">
+    <div class="row">
+      <label>API base</label><input id="apiBase" value="http://127.0.0.1:8008" size="24" />
+      <label>MRC path</label><input id="imagePath" size="60" placeholder="/absolute/path/to/image.mrc" />
+      <label>apix</label><input id="apix" type="number" value="1.12" step="0.001" min="0.0001" />
+      <label>Interaction</label>
+      <select id="interactionMode">
+        <option value="annotate">Annotate</option>
+        <option value="navigate">Navigate</option>
+      </select>
+      <button id="openBtn">Open Image</button>
+      <button id="previewBtn">Load Preview</button>
+      <button id="exportBtn">Export CSV</button>
+      <button id="importBtn">Import CSV</button>
+      <input id="importFile" type="file" accept=".csv,text/csv" style="display:none" />
+    </div>
+    <div class="row">
+      <strong id="meta">No image loaded.</strong>
+    </div>
+  </div>
+
+  <div id="layout">
+    <div id="sidePanel">
+      <div id="wrap">
+        <canvas id="imgCanvas"></canvas>
+        <canvas id="overlayCanvas"></canvas>
+      </div>
+      <p class="muted">
+        Polyline mode: click to add points, double-click to finish, Shift+click removes last point.
+        Pencil mode: turn off Edit mode, click-drag to sketch then release to simplify.
+        Edit mode: drag vertices to move, Alt+click inserts on nearest segment, Ctrl/Cmd+click appends endpoint,
+        Backspace/Delete removes active vertex.
+      </p>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h4 style="margin: 0 0 8px 0;">Display Controls</h4>
+        <div class="row">
+          <label>Preview pLow</label><input id="pLow" type="number" value="1" min="0" max="99" step="0.5" />
+          <label>pHigh</label><input id="pHigh" type="number" value="99" min="1" max="100" step="0.5" />
+          <button id="reloadPreviewBtn">Reload Preview</button>
+        </div>
+        <div class="row">
+          <label>Filter</label>
+          <select id="viewFilter">
+            <option value="none">None</option>
+            <option value="gaussian">Gaussian</option>
+            <option value="median">Median</option>
+            <option value="unsharp">Unsharp</option>
+          </select>
+          <label>Sigma/Radius</label><input id="filterSigma" type="number" value="1.2" min="0.1" max="10" step="0.1" />
+          <label>Amount</label><input id="filterAmount" type="number" value="1.0" min="0" max="5" step="0.1" />
+        </div>
+        <div class="row">
+          <button id="applyFilterBtn">Apply Filter</button>
+          <button id="resetFilterBtn">Reset Filter</button>
+        </div>
+        <div class="row">
+          <label>Brightness</label><input id="brightness" type="range" min="-100" max="100" value="0" />
+          <span id="brightnessVal">0</span>
+        </div>
+        <div class="row">
+          <label>Contrast</label><input id="contrast" type="range" min="-100" max="100" value="0" />
+          <span id="contrastVal">0</span>
+        </div>
+        <div class="row">
+          <label>Gamma</label><input id="gamma" type="range" min="20" max="300" value="100" />
+          <span id="gammaVal">1.00</span>
+        </div>
+        <div class="row">
+          <label>Display min</label><input id="dispMin" type="range" min="0" max="255" value="0" />
+          <label>max</label><input id="dispMax" type="range" min="0" max="255" value="255" />
+        </div>
+        <div class="row">
+          <label><input id="invert" type="checkbox" /> Invert</label>
+          <button id="autoDisplayBtn">Auto Display</button>
+        </div>
+        <div class="row">
+          <button id="fitBtn">Fit</button>
+          <button id="oneToOneBtn">1:1</button>
+          <button id="resetViewBtn">Reset View</button>
+          <span class="muted">Wheel: zoom, Right-drag: pan</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4 style="margin: 0 0 8px 0;">Path Actions</h4>
+        <div class="row">
+          <label>Name</label><input id="pathName" value="Path 1" />
+          <label>Group</label><input id="pathGroup" value="default" />
+          <label>Mode</label>
+          <select id="drawMode">
+            <option value="polyline">Polyline</option>
+            <option value="pencil">Pencil</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="startBtn">Start New Path</button>
+          <button id="finishBtn">Finish Path</button>
+          <button id="clearBtn">Clear Current</button>
+          <button id="removeLastBtn">Remove Last Point</button>
+        </div>
+        <div class="row">
+          <label><input id="editMode" type="checkbox" checked /> Edit mode</label>
+          <span class="muted">Alt+click: insert vertex on nearest segment | Backspace/Delete: remove selected vertex</span>
+        </div>
+        <div class="row">
+          <label>Pencil spacing (px)</label><input id="pencilSpacing" type="number" value="2.0" min="0.5" max="20" step="0.5" />
+          <label>Pencil simplify ε (px)</label><input id="pencilEps" type="number" value="1.0" min="0" max="20" step="0.5" />
+          <label><input id="pencilAutoFinish" type="checkbox" /> Auto-finish pencil</label>
+        </div>
+        <div class="row">
+          <label>Smoother</label>
+          <select id="smoothMode">
+            <option value="none">None</option>
+            <option value="moving_average">Moving average</option>
+            <option value="chaikin">Chaikin corner-cutting</option>
+          </select>
+          <label>Iter</label><input id="smoothIter" type="number" value="1" min="1" max="10" />
+          <button id="smoothCurrentBtn">Smooth Current</button>
+          <button id="smoothSelectedBtn">Smooth Selected</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4 style="margin: 0 0 8px 0;">Path Panel</h4>
+        <div class="row">
+          <label>Selected</label><input id="selName" />
+          <label>Group</label><input id="selGroup" />
+        </div>
+        <div class="row">
+          <label>Color</label><input id="selColor" type="color" value="#00ffff" />
+          <label>Width</label><input id="selWidth" type="number" value="2" min="1" max="10" step="0.5" />
+          <label><input id="selVisible" type="checkbox" checked /> Visible</label>
+        </div>
+        <div class="row">
+          <button id="saveSelBtn">Save Style/Name</button>
+          <button id="editSelBtn">Edit Selected Geometry</button>
+          <button id="dupSelBtn">Duplicate</button>
+          <button id="delSelBtn">Delete</button>
+        </div>
+        <div class="row">
+          <button id="refineSelBtn">Refine Selected to Density</button>
+          <label>Target</label>
+          <select id="refineTarget">
+            <option value="bright">Bright ridge</option>
+            <option value="dark">Dark ridge</option>
+          </select>
+          <label>Radius</label><input id="refineRadius" type="number" value="4" min="1" max="40" step="1" />
+          <label>Iter</label><input id="refineIter" type="number" value="2" min="1" max="10" step="1" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Group</th><th>Å</th><th>px</th><th>Pts</th><th>V</th>
+            </tr>
+          </thead>
+          <tbody id="pathTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h4>Log</h4>
+  <div id="log"></div>
+
+  <script>
+    const imgCanvas = document.getElementById("imgCanvas");
+    const overlayCanvas = document.getElementById("overlayCanvas");
+    const imgCtx = imgCanvas.getContext("2d");
+    const ovCtx = overlayCanvas.getContext("2d");
+    const logEl = document.getElementById("log");
+    const metaEl = document.getElementById("meta");
+
+    let currentPoints = [];
+    let savedPaths = [];
+    let currentApix = null;
+    let selectedPathIndex = -1;
+    let editingPathIndex = -1;
+    let previewBaseU8 = null;
+    let previewWidth = 0;
+    let previewHeight = 0;
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+    let sourceScaleX = 1.0; // source/full-res px per preview px
+    let sourceScaleY = 1.0;
+    let previewFilteredU8 = null;
+    const offscreenCanvas = document.createElement("canvas");
+    const offscreenCtx = offscreenCanvas.getContext("2d");
+    let view = { scale: 1.0, tx: 0.0, ty: 0.0 };
+    let panState = { active: false, lastX: 0, lastY: 0 };
+    let dragState = {
+      active: false,
+      target: null, // "current" | "selected"
+      vertexIndex: -1,
+      moved: false
+    };
+    const VERTEX_HIT_RADIUS = 8;
+    let activeVertex = { target: null, index: -1 }; // for keyboard delete
+    let suppressNextClick = false;
+    let pencilState = { active: false };
+
+    function imageToScreenPoint(pt) {
+      // pt is in source/full-res pixel coordinates
+      const px = pt[0] / sourceScaleX;
+      const py = pt[1] / sourceScaleY;
+      return [px * view.scale + view.tx, py * view.scale + view.ty];
+    }
+
+    function screenToImagePoint(x, y) {
+      const px = (x - view.tx) / Math.max(1e-9, view.scale);
+      const py = (y - view.ty) / Math.max(1e-9, view.scale);
+      return [px * sourceScaleX, py * sourceScaleY];
+    }
+
+    function hitRadiusInImagePx() {
+      const avgScale = 0.5 * (sourceScaleX + sourceScaleY);
+      return (VERTEX_HIT_RADIUS * avgScale) / Math.max(1e-9, view.scale);
+    }
+
+    function log(msg) {
+      logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 8000);
+    }
+
+    function apiBase() { return document.getElementById("apiBase").value.replace(/\/$/, ""); }
+
+    function redrawOverlay() {
+      ovCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      ovCtx.lineWidth = 2;
+      ovCtx.strokeStyle = "#ff3333";
+      ovCtx.fillStyle = "#33cc33";
+
+      for (let i = 0; i < savedPaths.length; i++) {
+        const p = savedPaths[i];
+        if (p.visible === false) continue;
+        const width = Number(p.line_width || 2);
+        let color = p.color || "#00ffff";
+        if (i === selectedPathIndex) color = "#ffff33";
+        drawPolyline(p.points, color, width);
+        if (i === selectedPathIndex) drawVertices(p.points, "#ffff33", 3.5);
+      }
+      drawPolyline(currentPoints, "#ff3333", 2);
+      drawVertices(currentPoints, "#33cc33", 3.0);
+      drawActiveVertexMarker();
+      updateMetaLength();
+      renderPathTable();
+    }
+
+    function drawPolyline(points, color, width) {
+      if (!points || points.length < 2) return;
+      ovCtx.strokeStyle = color;
+      ovCtx.lineWidth = width;
+      ovCtx.beginPath();
+      const p0 = imageToScreenPoint(points[0]);
+      ovCtx.moveTo(p0[0], p0[1]);
+      for (let i = 1; i < points.length; i++) {
+        const p = imageToScreenPoint(points[i]);
+        ovCtx.lineTo(p[0], p[1]);
+      }
+      ovCtx.stroke();
+    }
+
+    function drawVertices(points, color, radius) {
+      if (!points || points.length === 0) return;
+      ovCtx.fillStyle = color;
+      for (const pt of points) {
+        const [x, y] = imageToScreenPoint(pt);
+        ovCtx.beginPath();
+        ovCtx.arc(x, y, radius, 0, Math.PI * 2);
+        ovCtx.fill();
+      }
+    }
+
+    function drawActiveVertexMarker() {
+      if (!activeVertex || activeVertex.index < 0) return;
+      let pt = null;
+      if (activeVertex.target === "current") {
+        if (activeVertex.index < currentPoints.length) pt = currentPoints[activeVertex.index];
+      } else if (activeVertex.target === "selected") {
+        if (selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+          const pts = savedPaths[selectedPathIndex].points;
+          if (activeVertex.index < pts.length) pt = pts[activeVertex.index];
+        }
+      }
+      if (!pt) return;
+      const [x, y] = imageToScreenPoint(pt);
+      ovCtx.beginPath();
+      ovCtx.arc(x, y, 7.5, 0, Math.PI * 2);
+      ovCtx.strokeStyle = "#ff00cc";
+      ovCtx.lineWidth = 2;
+      ovCtx.stroke();
+      ovCtx.beginPath();
+      ovCtx.arc(x, y, 3.2, 0, Math.PI * 2);
+      ovCtx.fillStyle = "#ff00cc";
+      ovCtx.fill();
+    }
+
+    function lengthPx(points) {
+      let s = 0;
+      for (let i = 1; i < points.length; i++) {
+        const dx = points[i][0] - points[i - 1][0];
+        const dy = points[i][1] - points[i - 1][1];
+        s += Math.sqrt(dx * dx + dy * dy);
+      }
+      return s;
+    }
+
+    function nearestVertex(points, x, y, maxRadius = VERTEX_HIT_RADIUS) {
+      if (!points || points.length === 0) return { idx: -1, dist2: Infinity };
+      let bestIdx = -1;
+      let bestD2 = Infinity;
+      const r2 = maxRadius * maxRadius;
+      for (let i = 0; i < points.length; i++) {
+        const dx = points[i][0] - x;
+        const dy = points[i][1] - y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2 && d2 <= r2) {
+          bestD2 = d2;
+          bestIdx = i;
+        }
+      }
+      return { idx: bestIdx, dist2: bestD2 };
+    }
+
+    function nearestSegmentInsertIndex(points, x, y) {
+      if (!points || points.length < 2) return { insertAt: -1, dist2: Infinity };
+      let best = { insertAt: -1, dist2: Infinity };
+      for (let i = 0; i < points.length - 1; i++) {
+        const ax = points[i][0], ay = points[i][1];
+        const bx = points[i + 1][0], by = points[i + 1][1];
+        const vx = bx - ax, vy = by - ay;
+        const wx = x - ax, wy = y - ay;
+        const vv = vx * vx + vy * vy;
+        const tRaw = vv > 0 ? (wx * vx + wy * vy) / vv : 0;
+        const t = Math.max(0, Math.min(1, tRaw));
+        const px = ax + t * vx, py = ay + t * vy;
+        const dx = x - px, dy = y - py;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < best.dist2) best = { insertAt: i + 1, dist2: d2 };
+      }
+      return best;
+    }
+
+    function distance2(a, b) {
+      const dx = a[0] - b[0];
+      const dy = a[1] - b[1];
+      return dx * dx + dy * dy;
+    }
+
+    function distance(a, b) {
+      return Math.sqrt(distance2(a, b));
+    }
+
+    // Ramer-Douglas-Peucker simplification in image space.
+    function rdpSimplify(points, epsilon) {
+      if (!points || points.length < 3 || epsilon <= 0) return points ? points.slice() : [];
+      const eps2 = epsilon * epsilon;
+      function perpDist2(p, a, b) {
+        const vx = b[0] - a[0], vy = b[1] - a[1];
+        const wx = p[0] - a[0], wy = p[1] - a[1];
+        const vv = vx * vx + vy * vy;
+        let t = vv > 0 ? (wx * vx + wy * vy) / vv : 0;
+        t = Math.max(0, Math.min(1, t));
+        const px = a[0] + t * vx, py = a[1] + t * vy;
+        const dx = p[0] - px, dy = p[1] - py;
+        return dx * dx + dy * dy;
+      }
+      function recurse(arr, i0, i1, keep) {
+        let maxD2 = -1;
+        let idx = -1;
+        for (let i = i0 + 1; i < i1; i++) {
+          const d2 = perpDist2(arr[i], arr[i0], arr[i1]);
+          if (d2 > maxD2) {
+            maxD2 = d2;
+            idx = i;
+          }
+        }
+        if (maxD2 > eps2 && idx > 0) {
+          keep[idx] = true;
+          recurse(arr, i0, idx, keep);
+          recurse(arr, idx, i1, keep);
+        }
+      }
+      const keep = new Array(points.length).fill(false);
+      keep[0] = true;
+      keep[points.length - 1] = true;
+      recurse(points, 0, points.length - 1, keep);
+      const out = [];
+      for (let i = 0; i < points.length; i++) if (keep[i]) out.push(points[i]);
+      return out;
+    }
+
+    function sampleIntensityNearest(imgX, imgY) {
+      if (!previewBaseU8 || previewWidth <= 0 || previewHeight <= 0) return 0;
+      const px = imgX / sourceScaleX;
+      const py = imgY / sourceScaleY;
+      const x = Math.max(0, Math.min(previewWidth - 1, Math.round(px)));
+      const y = Math.max(0, Math.min(previewHeight - 1, Math.round(py)));
+      return previewBaseU8[y * previewWidth + x];
+    }
+
+    function refinePointToDensity(imgPt, radius, target) {
+      const cx = imgPt[0], cy = imgPt[1];
+      let best = [cx, cy];
+      let bestVal = target === "dark" ? Infinity : -Infinity;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > radius * radius) continue;
+          const x = cx + dx;
+          const y = cy + dy;
+          const val = sampleIntensityNearest(x, y);
+          if (target === "dark") {
+            if (val < bestVal) {
+              bestVal = val;
+              best = [x, y];
+            }
+          } else {
+            if (val > bestVal) {
+              bestVal = val;
+              best = [x, y];
+            }
+          }
+        }
+      }
+      return best;
+    }
+
+    function refinePathToDensity(points, radius, iterations, target) {
+      if (!points || points.length < 2) return points ? points.slice() : [];
+      let out = points.slice().map(p => [p[0], p[1]]);
+      for (let it = 0; it < iterations; it++) {
+        const next = out.slice().map(p => [p[0], p[1]]);
+        for (let i = 1; i < out.length - 1; i++) {
+          next[i] = refinePointToDensity(out[i], radius, target);
+        }
+        out = smoothMovingAverage(next, 1);
+      }
+      return out;
+    }
+
+    function clearActiveVertex() {
+      activeVertex.target = null;
+      activeVertex.index = -1;
+    }
+
+    function setActiveVertex(target, idx) {
+      activeVertex.target = target;
+      activeVertex.index = idx;
+    }
+
+    function editModeEnabled() {
+      return document.getElementById("editMode").checked;
+    }
+
+    function interactionMode() {
+      return document.getElementById("interactionMode").value || "annotate";
+    }
+
+    function isNavigateOnly() {
+      return interactionMode() === "navigate";
+    }
+
+    function smoothMovingAverage(points, iterations = 1) {
+      if (!points || points.length < 3) return points ? points.slice() : [];
+      let out = points.slice().map(p => [p[0], p[1]]);
+      for (let it = 0; it < iterations; it++) {
+        const next = out.slice().map(p => [p[0], p[1]]);
+        for (let i = 1; i < out.length - 1; i++) {
+          next[i][0] = (out[i - 1][0] + out[i][0] + out[i + 1][0]) / 3.0;
+          next[i][1] = (out[i - 1][1] + out[i][1] + out[i + 1][1]) / 3.0;
+        }
+        out = next;
+      }
+      return out;
+    }
+
+    function smoothChaikin(points, iterations = 1) {
+      if (!points || points.length < 3) return points ? points.slice() : [];
+      let out = points.slice().map(p => [p[0], p[1]]);
+      for (let it = 0; it < iterations; it++) {
+        const next = [];
+        next.push([out[0][0], out[0][1]]);
+        for (let i = 0; i < out.length - 1; i++) {
+          const p0 = out[i];
+          const p1 = out[i + 1];
+          const q = [0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]];
+          const r = [0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]];
+          next.push(q, r);
+        }
+        next.push([out[out.length - 1][0], out[out.length - 1][1]]);
+        out = next;
+      }
+      return out;
+    }
+
+    function applySmoothing(points) {
+      const mode = document.getElementById("smoothMode").value;
+      const iterations = Math.max(1, Math.min(10, Number(document.getElementById("smoothIter").value) || 1));
+      if (mode === "moving_average") return smoothMovingAverage(points, iterations);
+      if (mode === "chaikin") return smoothChaikin(points, iterations);
+      return points.slice();
+    }
+
+    function updateMetaLength() {
+      const lp = lengthPx(currentPoints);
+      const la = currentApix ? lp * currentApix : 0;
+      metaEl.textContent = `Current points: ${currentPoints.length} | Length: ${lp.toFixed(2)} px | ${la.toFixed(2)} Å`;
+    }
+
+    async function openImage() {
+      const image_path = document.getElementById("imagePath").value.trim();
+      const apix = Number(document.getElementById("apix").value);
+      if (!image_path || !apix || apix <= 0) return log("Provide valid MRC path and apix.");
+      const res = await fetch(`${apiBase()}/open-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_path, apix })
+      });
+      const data = await res.json();
+      if (!res.ok) return log(`open-image error: ${JSON.stringify(data)}`);
+      currentApix = data.apix;
+      metaEl.textContent = `Loaded ${data.width}x${data.height} | apix=${data.apix} Å/px | header_apix=${data.header_apix ?? "n/a"}`;
+      log(`Opened image: ${data.image_path}`);
+    }
+
+    function renderDisplayImage() {
+      if (!previewBaseU8) return;
+      const brightness = Number(document.getElementById("brightness").value);
+      const contrast = Number(document.getElementById("contrast").value);
+      const gamma = Number(document.getElementById("gamma").value) / 100.0;
+      const dispMin = Number(document.getElementById("dispMin").value);
+      const dispMax = Number(document.getElementById("dispMax").value);
+      const invert = document.getElementById("invert").checked;
+
+      const src = previewFilteredU8 || previewBaseU8;
+      const out = new Uint8ClampedArray(src.length);
+      const cFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+      const dmin = Math.min(dispMin, dispMax - 1);
+      const dmax = Math.max(dispMax, dispMin + 1);
+
+      for (let i = 0; i < src.length; i++) {
+        let v = src[i];
+        v = ((v - dmin) * 255.0) / (dmax - dmin);
+        v = Math.max(0, Math.min(255, v));
+        v = cFactor * (v - 128) + 128 + brightness;
+        v = Math.max(0, Math.min(255, v));
+        v = 255.0 * Math.pow(v / 255.0, 1.0 / Math.max(0.01, gamma));
+        if (invert) v = 255 - v;
+        out[i] = Math.max(0, Math.min(255, Math.round(v)));
+      }
+
+      const imageData = offscreenCtx.createImageData(previewWidth, previewHeight);
+      for (let i = 0, j = 0; i < out.length; i++, j += 4) {
+        const v = out[i];
+        imageData.data[j] = v;
+        imageData.data[j + 1] = v;
+        imageData.data[j + 2] = v;
+        imageData.data[j + 3] = 255;
+      }
+      offscreenCanvas.width = previewWidth;
+      offscreenCanvas.height = previewHeight;
+      offscreenCtx.putImageData(imageData, 0, 0);
+      renderView();
+    }
+
+    function gaussianKernel1D(sigma) {
+      const s = Math.max(0.1, Number(sigma) || 1.0);
+      const r = Math.max(1, Math.ceil(3 * s));
+      const k = new Float32Array(2 * r + 1);
+      let sum = 0;
+      for (let i = -r; i <= r; i++) {
+        const v = Math.exp(-(i * i) / (2 * s * s));
+        k[i + r] = v;
+        sum += v;
+      }
+      for (let i = 0; i < k.length; i++) k[i] /= sum;
+      return { k, r };
+    }
+
+    function gaussianBlurGray(u8, w, h, sigma) {
+      const { k, r } = gaussianKernel1D(sigma);
+      const src = new Float32Array(u8.length);
+      for (let i = 0; i < u8.length; i++) src[i] = u8[i];
+      const tmp = new Float32Array(src.length);
+      const out = new Float32Array(src.length);
+
+      // Horizontal
+      for (let y = 0; y < h; y++) {
+        const row = y * w;
+        for (let x = 0; x < w; x++) {
+          let s = 0;
+          for (let j = -r; j <= r; j++) {
+            const xx = Math.max(0, Math.min(w - 1, x + j));
+            s += src[row + xx] * k[j + r];
+          }
+          tmp[row + x] = s;
+        }
+      }
+      // Vertical
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let s = 0;
+          for (let j = -r; j <= r; j++) {
+            const yy = Math.max(0, Math.min(h - 1, y + j));
+            s += tmp[yy * w + x] * k[j + r];
+          }
+          out[y * w + x] = s;
+        }
+      }
+      const u = new Uint8Array(out.length);
+      for (let i = 0; i < out.length; i++) u[i] = Math.max(0, Math.min(255, Math.round(out[i])));
+      return u;
+    }
+
+    function medianFilterGray(u8, w, h, size = 3) {
+      const n = Math.max(3, Number(size) || 3);
+      const k = n % 2 === 0 ? n + 1 : n;
+      const r = Math.floor(k / 2);
+      const out = new Uint8Array(u8.length);
+      const win = new Uint8Array(k * k);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let c = 0;
+          for (let j = -r; j <= r; j++) {
+            const yy = Math.max(0, Math.min(h - 1, y + j));
+            for (let i = -r; i <= r; i++) {
+              const xx = Math.max(0, Math.min(w - 1, x + i));
+              win[c++] = u8[yy * w + xx];
+            }
+          }
+          const arr = Array.from(win);
+          arr.sort((a, b) => a - b);
+          out[y * w + x] = arr[Math.floor(arr.length / 2)];
+        }
+      }
+      return out;
+    }
+
+    function unsharpGray(u8, w, h, sigma, amount) {
+      const blur = gaussianBlurGray(u8, w, h, sigma);
+      const a = Math.max(0, Number(amount) || 1.0);
+      const out = new Uint8Array(u8.length);
+      for (let i = 0; i < u8.length; i++) {
+        const v = u8[i] + a * (u8[i] - blur[i]);
+        out[i] = Math.max(0, Math.min(255, Math.round(v)));
+      }
+      return out;
+    }
+
+    function applyViewFilter() {
+      if (!previewBaseU8) return;
+      const mode = document.getElementById("viewFilter").value;
+      const sigma = Math.max(0.1, Number(document.getElementById("filterSigma").value) || 1.2);
+      const amount = Math.max(0, Number(document.getElementById("filterAmount").value) || 1.0);
+      const w = previewWidth;
+      const h = previewHeight;
+
+      if (mode === "none") {
+        previewFilteredU8 = null;
+        renderDisplayImage();
+        log("Filter cleared.");
+        return;
+      }
+      if (mode === "gaussian") {
+        previewFilteredU8 = gaussianBlurGray(previewBaseU8, w, h, sigma);
+        renderDisplayImage();
+        log(`Applied Gaussian filter (sigma=${sigma}).`);
+        return;
+      }
+      if (mode === "median") {
+        const size = Math.max(3, Math.min(7, Math.round(sigma * 2 + 1)));
+        previewFilteredU8 = medianFilterGray(previewBaseU8, w, h, size);
+        renderDisplayImage();
+        log(`Applied Median filter (size=${size}).`);
+        return;
+      }
+      if (mode === "unsharp") {
+        previewFilteredU8 = unsharpGray(previewBaseU8, w, h, sigma, amount);
+        renderDisplayImage();
+        log(`Applied Unsharp filter (sigma=${sigma}, amount=${amount}).`);
+      }
+    }
+
+    function renderView() {
+      imgCtx.setTransform(1, 0, 0, 1, 0, 0);
+      imgCtx.clearRect(0, 0, imgCanvas.width, imgCanvas.height);
+      if (!previewBaseU8) return;
+      imgCtx.setTransform(view.scale, 0, 0, view.scale, view.tx, view.ty);
+      imgCtx.drawImage(offscreenCanvas, 0, 0);
+      imgCtx.setTransform(1, 0, 0, 1, 0, 0);
+      redrawOverlay();
+    }
+
+    function fitView() {
+      if (previewWidth <= 0 || previewHeight <= 0) return;
+      view.scale = 1.0;
+      view.tx = 0.0;
+      view.ty = 0.0;
+      renderView();
+    }
+
+    async function loadPreview() {
+      const res = await fetch(`${apiBase()}/image-preview?p_low=1&p_high=99&max_dim=1400`);
+      const data = await res.json();
+      if (!res.ok) return log(`image-preview error: ${JSON.stringify(data)}`);
+
+      const bytes = Uint8Array.from(atob(data.pixels_u8_b64), c => c.charCodeAt(0));
+      previewBaseU8 = bytes;
+      previewFilteredU8 = null;
+      previewWidth = data.width;
+      previewHeight = data.height;
+      sourceWidth = data.source_width || data.width;
+      sourceHeight = data.source_height || data.height;
+      sourceScaleX = data.scale_x || (sourceWidth / Math.max(1, previewWidth));
+      sourceScaleY = data.scale_y || (sourceHeight / Math.max(1, previewHeight));
+
+      imgCanvas.width = overlayCanvas.width = previewWidth;
+      imgCanvas.height = overlayCanvas.height = previewHeight;
+      document.getElementById("wrap").style.width = `${data.width}px`;
+      document.getElementById("wrap").style.height = `${data.height}px`;
+      view = { scale: 1.0, tx: 0.0, ty: 0.0 };
+      renderDisplayImage();
+      log(`Preview rendered: ${data.width}x${data.height} (source: ${sourceWidth}x${sourceHeight})`);
+    }
+
+    function finishPath() {
+      if (currentPoints.length < 2) return log("Need at least 2 points.");
+      const name = document.getElementById("pathName").value.trim() || `Path ${savedPaths.length + 1}`;
+      const group = document.getElementById("pathGroup").value.trim() || "default";
+      const lp = lengthPx(currentPoints);
+      const la = currentApix ? lp * currentApix : 0;
+      const pathObj = {
+        id: editingPathIndex >= 0 ? savedPaths[editingPathIndex].id : `path_${savedPaths.length + 1}`,
+        name,
+        group,
+        points: currentPoints.slice(),
+        color: "#00ffff",
+        line_width: 2,
+        visible: true,
+        locked: false,
+        creation_mode: document.getElementById("drawMode").value || "polyline",
+        length_px: lp,
+        length_angstrom: la
+      };
+      if (editingPathIndex >= 0) {
+        pathObj.color = savedPaths[editingPathIndex].color;
+        pathObj.line_width = savedPaths[editingPathIndex].line_width;
+        pathObj.visible = savedPaths[editingPathIndex].visible;
+        savedPaths[editingPathIndex] = pathObj;
+        selectedPathIndex = editingPathIndex;
+        log(`Updated ${name}: ${lp.toFixed(2)} px, ${la.toFixed(2)} Å`);
+      } else {
+        savedPaths.push(pathObj);
+        selectedPathIndex = savedPaths.length - 1;
+        log(`Saved ${name}: ${lp.toFixed(2)} px, ${la.toFixed(2)} Å`);
+      }
+      currentPoints = [];
+      editingPathIndex = -1;
+      redrawOverlay();
+      loadSelectedIntoEditor();
+    }
+
+    async function exportCsv() {
+      if (!savedPaths.length) return log("No saved paths.");
+      const apix = Number(document.getElementById("apix").value);
+      const res = await fetch(`${apiBase()}/export-csv`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: savedPaths, apix })
+      });
+      const data = await res.json();
+      if (!res.ok) return log(`export-csv error: ${JSON.stringify(data)}`);
+      const blob = new Blob([data.csv_text], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "pathmeasure_export.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      log(`CSV exported (${data.rows_written} rows).`);
+    }
+
+    function parseCsvLine(line) {
+      const out = [];
+      let cur = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          out.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+
+    function importCsvText(text) {
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) {
+        log("CSV import failed: file has no data rows.");
+        return;
+      }
+      const header = parseCsvLine(lines[0]).map(h => h.trim());
+      const idx = {};
+      for (let i = 0; i < header.length; i++) idx[header[i]] = i;
+      const required = ["id", "name", "group", "visible", "color", "line_width", "points_json"];
+      for (const k of required) {
+        if (!(k in idx)) {
+          log(`CSV import failed: missing required column '${k}'.`);
+          return;
+        }
+      }
+
+      const newPaths = [];
+      for (let r = 1; r < lines.length; r++) {
+        const cols = parseCsvLine(lines[r]);
+        if (!cols.length) continue;
+        try {
+          const id = (cols[idx.id] || "").trim() || `path_${newPaths.length + 1}`;
+          const name = (cols[idx.name] || "").trim() || id;
+          const group = (cols[idx.group] || "").trim() || "default";
+          const visible = String(cols[idx.visible] || "true").trim().toLowerCase() !== "false";
+          const color = (cols[idx.color] || "").trim() || "#00ffff";
+          const line_width = Number(cols[idx.line_width] || 2) || 2;
+          const pointsRaw = cols[idx.points_json] || "[]";
+          const points = JSON.parse(pointsRaw);
+          if (!Array.isArray(points) || points.length < 2) continue;
+          const cleanPoints = points.map(p => [Number(p[0]) || 0, Number(p[1]) || 0]);
+
+          newPaths.push({
+            id,
+            name,
+            group,
+            points: cleanPoints,
+            color,
+            line_width,
+            visible,
+            locked: false,
+            creation_mode: "polyline",
+          });
+        } catch (err) {
+          // Skip malformed row, continue parsing.
+        }
+      }
+
+      if (!newPaths.length) {
+        log("CSV import completed, but no valid paths were found.");
+        return;
+      }
+
+      // Avoid ID collisions by renaming duplicates.
+      const existing = new Set(savedPaths.map(p => p.id));
+      for (const p of newPaths) {
+        if (!existing.has(p.id)) {
+          existing.add(p.id);
+          continue;
+        }
+        let n = 2;
+        let candidate = `${p.id}_${n}`;
+        while (existing.has(candidate)) {
+          n++;
+          candidate = `${p.id}_${n}`;
+        }
+        p.id = candidate;
+        existing.add(candidate);
+      }
+
+      savedPaths = savedPaths.concat(newPaths);
+      selectedPathIndex = savedPaths.length - 1;
+      redrawOverlay();
+      loadSelectedIntoEditor();
+      log(`Imported ${newPaths.length} path(s) from CSV.`);
+    }
+
+    function renderPathTable() {
+      const tbody = document.getElementById("pathTableBody");
+      tbody.innerHTML = "";
+      for (let i = 0; i < savedPaths.length; i++) {
+        const p = savedPaths[i];
+        const tr = document.createElement("tr");
+        if (i === selectedPathIndex) tr.classList.add("selected");
+        const lp = lengthPx(p.points);
+        const la = (currentApix || 0) * lp;
+        tr.innerHTML = `
+          <td>${p.id}</td>
+          <td>${p.name}</td>
+          <td>${p.group || "default"}</td>
+          <td>${la.toFixed(2)}</td>
+          <td>${lp.toFixed(2)}</td>
+          <td>${p.points.length}</td>
+          <td>${p.visible === false ? "off" : "on"}</td>
+        `;
+        tr.addEventListener("click", () => {
+          selectedPathIndex = i;
+          loadSelectedIntoEditor();
+          redrawOverlay();
+        });
+        tbody.appendChild(tr);
+      }
+    }
+
+    function loadSelectedIntoEditor() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return;
+      const p = savedPaths[selectedPathIndex];
+      document.getElementById("selName").value = p.name || "";
+      document.getElementById("selGroup").value = p.group || "default";
+      document.getElementById("selColor").value = p.color || "#00ffff";
+      document.getElementById("selWidth").value = p.line_width || 2;
+      document.getElementById("selVisible").checked = p.visible !== false;
+      document.getElementById("pathName").value = p.name || "";
+      document.getElementById("pathGroup").value = p.group || "default";
+    }
+
+    function saveSelectedStyle() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      const p = savedPaths[selectedPathIndex];
+      p.name = document.getElementById("selName").value.trim() || p.name;
+      p.group = document.getElementById("selGroup").value.trim() || "default";
+      p.color = document.getElementById("selColor").value;
+      p.line_width = Number(document.getElementById("selWidth").value) || 2;
+      p.visible = document.getElementById("selVisible").checked;
+      redrawOverlay();
+      log(`Updated style for ${p.id}`);
+    }
+
+    function editSelectedGeometry() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      currentPoints = savedPaths[selectedPathIndex].points.slice();
+      editingPathIndex = selectedPathIndex;
+      log(`Editing geometry for ${savedPaths[selectedPathIndex].id}. Add/remove points then click Finish Path.`);
+      redrawOverlay();
+    }
+
+    function smoothCurrentPath() {
+      if (!currentPoints || currentPoints.length < 3) return log("Current path needs at least 3 points to smooth.");
+      const before = lengthPx(currentPoints);
+      currentPoints = applySmoothing(currentPoints);
+      const after = lengthPx(currentPoints);
+      redrawOverlay();
+      log(`Smoothed current path: ${before.toFixed(2)} px -> ${after.toFixed(2)} px`);
+    }
+
+    function smoothSelectedPath() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      const p = savedPaths[selectedPathIndex];
+      if (!p.points || p.points.length < 3) return log("Selected path needs at least 3 points to smooth.");
+      const before = lengthPx(p.points);
+      p.points = applySmoothing(p.points);
+      const after = lengthPx(p.points);
+      redrawOverlay();
+      log(`Smoothed ${p.id}: ${before.toFixed(2)} px -> ${after.toFixed(2)} px`);
+    }
+
+    function duplicateSelected() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      const p = savedPaths[selectedPathIndex];
+      const copy = JSON.parse(JSON.stringify(p));
+      copy.id = `path_${savedPaths.length + 1}`;
+      copy.name = `${p.name}_copy`;
+      savedPaths.push(copy);
+      selectedPathIndex = savedPaths.length - 1;
+      redrawOverlay();
+      loadSelectedIntoEditor();
+      log(`Duplicated ${p.id}`);
+    }
+
+    function deleteSelected() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      const removed = savedPaths.splice(selectedPathIndex, 1);
+      selectedPathIndex = Math.min(selectedPathIndex, savedPaths.length - 1);
+      redrawOverlay();
+      loadSelectedIntoEditor();
+      log(`Deleted ${removed[0].id}`);
+    }
+
+    function refineSelectedToDensity() {
+      if (selectedPathIndex < 0 || selectedPathIndex >= savedPaths.length) return log("Select a path first.");
+      if (!previewBaseU8) return log("Load preview image first.");
+      const p = savedPaths[selectedPathIndex];
+      if (!p.points || p.points.length < 3) return log("Selected path needs at least 3 points.");
+      const radius = Math.max(1, Math.min(40, Number(document.getElementById("refineRadius").value) || 4));
+      const iterations = Math.max(1, Math.min(10, Number(document.getElementById("refineIter").value) || 2));
+      const target = document.getElementById("refineTarget").value || "bright";
+      const before = lengthPx(p.points);
+      p.points = refinePathToDensity(p.points, radius, iterations, target);
+      const after = lengthPx(p.points);
+      redrawOverlay();
+      log(`Refined ${p.id} to ${target} density (r=${radius}, iter=${iterations}): ${before.toFixed(2)} -> ${after.toFixed(2)} px`);
+    }
+
+    overlayCanvas.addEventListener("click", (e) => {
+      if (isNavigateOnly()) return;
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+      }
+      if (pencilState.active) return;
+      if (dragState.active) return;
+      if (editModeEnabled() && e.altKey) {
+        const rect = overlayCanvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const [x, y] = screenToImagePoint(sx, sy);
+
+        // Insert on current path if editing current points.
+        if (currentPoints.length >= 2) {
+          const near = nearestSegmentInsertIndex(currentPoints, x, y);
+          if (near.insertAt > 0) {
+            currentPoints.splice(near.insertAt, 0, [x, y]);
+            setActiveVertex("current", near.insertAt);
+            redrawOverlay();
+            log(`Inserted vertex in current path at index ${near.insertAt}.`);
+            return;
+          }
+        }
+
+        // Otherwise insert on selected path.
+        if (selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+          const pts = savedPaths[selectedPathIndex].points;
+          const near = nearestSegmentInsertIndex(pts, x, y);
+          if (near.insertAt > 0) {
+            pts.splice(near.insertAt, 0, [x, y]);
+            setActiveVertex("selected", near.insertAt);
+            redrawOverlay();
+            log(`Inserted vertex in ${savedPaths[selectedPathIndex].id} at index ${near.insertAt}.`);
+            return;
+          }
+        }
+      }
+
+      if (dragState.active) return;
+      const drawMode = document.getElementById("drawMode").value;
+      if (drawMode === "pencil") return;
+
+      // In edit mode, make point insertion explicit:
+      // - Alt+click inserts on nearest segment
+      // - Ctrl/Cmd+click appends a new endpoint
+      // Plain click in edit mode only selects/edits, it does not append.
+      if (editModeEnabled() && !e.ctrlKey && !e.metaKey) return;
+
+      if (e.shiftKey) {
+        currentPoints.pop();
+        clearActiveVertex();
+        redrawOverlay();
+        return;
+      }
+      const rect = overlayCanvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const [x, y] = screenToImagePoint(sx, sy);
+      currentPoints.push([x, y]);
+      setActiveVertex("current", currentPoints.length - 1);
+      redrawOverlay();
+    });
+    overlayCanvas.addEventListener("dblclick", (e) => {
+      if (isNavigateOnly()) return;
+      e.preventDefault();
+      finishPath();
+    });
+
+    overlayCanvas.addEventListener("mousedown", (e) => {
+      if (isNavigateOnly()) return;
+      const drawMode = document.getElementById("drawMode").value;
+      if (drawMode === "pencil" && e.button === 0 && !editModeEnabled()) {
+        const rect = overlayCanvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const p = screenToImagePoint(sx, sy);
+        currentPoints = [p];
+        setActiveVertex("current", 0);
+        pencilState.active = true;
+        redrawOverlay();
+        e.preventDefault();
+        return;
+      }
+      if (!editModeEnabled()) return;
+      const rect = overlayCanvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const [x, y] = screenToImagePoint(sx, sy);
+      const hitRadius = hitRadiusInImagePx();
+
+      // Prefer dragging current path vertices if currently editing/drawing points.
+      if (currentPoints.length > 0) {
+        const hitCur = nearestVertex(currentPoints, x, y, hitRadius);
+        if (hitCur.idx >= 0) {
+          dragState.active = true;
+          dragState.target = "current";
+          dragState.vertexIndex = hitCur.idx;
+          dragState.moved = false;
+          setActiveVertex("current", hitCur.idx);
+          overlayCanvas.style.cursor = "grabbing";
+          e.preventDefault();
+          return;
+        }
+      }
+
+      // Then selected saved path vertices.
+      if (selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+        const p = savedPaths[selectedPathIndex];
+        const hitSel = nearestVertex(p.points, x, y, hitRadius);
+        if (hitSel.idx >= 0) {
+          dragState.active = true;
+          dragState.target = "selected";
+          dragState.vertexIndex = hitSel.idx;
+          dragState.moved = false;
+          setActiveVertex("selected", hitSel.idx);
+          overlayCanvas.style.cursor = "grabbing";
+          e.preventDefault();
+        }
+      }
+    });
+
+    overlayCanvas.addEventListener("mousemove", (e) => {
+      const rect = overlayCanvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const [x, y] = screenToImagePoint(sx, sy);
+
+      if (pencilState.active) {
+        const spacing = Math.max(0.5, Number(document.getElementById("pencilSpacing").value) || 2.0);
+        const last = currentPoints[currentPoints.length - 1];
+        if (!last || distance(last, [x, y]) >= spacing) {
+          currentPoints.push([x, y]);
+          setActiveVertex("current", currentPoints.length - 1);
+          redrawOverlay();
+        }
+        return;
+      }
+
+      if (!dragState.active) {
+        // Hover feedback
+        if (isNavigateOnly()) {
+          overlayCanvas.style.cursor = panState.active ? "move" : "default";
+          return;
+        }
+        if (!editModeEnabled()) {
+          overlayCanvas.style.cursor = "crosshair";
+          return;
+        }
+        let hover = false;
+        const hitRadius = hitRadiusInImagePx();
+        if (currentPoints.length > 0 && nearestVertex(currentPoints, x, y, hitRadius).idx >= 0) hover = true;
+        if (!hover && selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+          if (nearestVertex(savedPaths[selectedPathIndex].points, x, y, hitRadius).idx >= 0) hover = true;
+        }
+        overlayCanvas.style.cursor = hover ? "grab" : "crosshair";
+        return;
+      }
+
+      if (dragState.target === "current" && dragState.vertexIndex >= 0 && dragState.vertexIndex < currentPoints.length) {
+        dragState.moved = true;
+        currentPoints[dragState.vertexIndex] = [x, y];
+        redrawOverlay();
+        return;
+      }
+      if (dragState.target === "selected" && selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+        const pts = savedPaths[selectedPathIndex].points;
+        if (dragState.vertexIndex >= 0 && dragState.vertexIndex < pts.length) {
+          dragState.moved = true;
+          pts[dragState.vertexIndex] = [x, y];
+          redrawOverlay();
+        }
+      }
+    });
+
+    function endDrag() {
+      if (pencilState.active) {
+        pencilState.active = false;
+        const eps = Math.max(0, Number(document.getElementById("pencilEps").value) || 1.0);
+        currentPoints = rdpSimplify(currentPoints, eps);
+        if (currentPoints.length < 2) {
+          currentPoints = [];
+          clearActiveVertex();
+        } else {
+          setActiveVertex("current", currentPoints.length - 1);
+        }
+        redrawOverlay();
+        if (document.getElementById("pencilAutoFinish").checked && currentPoints.length >= 2) {
+          finishPath();
+        }
+        return;
+      }
+      if (!dragState.active) return;
+      if (dragState.moved) suppressNextClick = true;
+      dragState.active = false;
+      dragState.target = null;
+      dragState.vertexIndex = -1;
+      dragState.moved = false;
+      overlayCanvas.style.cursor = "crosshair";
+      redrawOverlay();
+    }
+
+    overlayCanvas.addEventListener("mouseup", endDrag);
+    overlayCanvas.addEventListener("mouseleave", endDrag);
+    overlayCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    overlayCanvas.addEventListener("wheel", (e) => {
+      if (!previewBaseU8) return;
+      e.preventDefault();
+      const rect = overlayCanvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+      const oldScale = view.scale;
+      const newScale = Math.max(0.2, Math.min(20, oldScale * zoom));
+      const k = newScale / oldScale;
+      view.tx = cx - k * (cx - view.tx);
+      view.ty = cy - k * (cy - view.ty);
+      view.scale = newScale;
+      renderView();
+    }, { passive: false });
+    overlayCanvas.addEventListener("mousedown", (e) => {
+      if (e.button === 2) {
+        panState.active = true;
+        panState.lastX = e.clientX;
+        panState.lastY = e.clientY;
+        overlayCanvas.style.cursor = "move";
+        e.preventDefault();
+      }
+      if (e.button === 0 && isNavigateOnly()) {
+        panState.active = true;
+        panState.lastX = e.clientX;
+        panState.lastY = e.clientY;
+        overlayCanvas.style.cursor = "move";
+        e.preventDefault();
+      }
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!panState.active) return;
+      const dx = e.clientX - panState.lastX;
+      const dy = e.clientY - panState.lastY;
+      panState.lastX = e.clientX;
+      panState.lastY = e.clientY;
+      view.tx += dx;
+      view.ty += dy;
+      renderView();
+    });
+    window.addEventListener("mouseup", () => {
+      if (!panState.active) return;
+      panState.active = false;
+      overlayCanvas.style.cursor = isNavigateOnly() ? "default" : "crosshair";
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key !== "Backspace" && e.key !== "Delete") return;
+      if (!editModeEnabled()) return;
+      if (activeVertex.index < 0) return;
+
+      if (activeVertex.target === "current") {
+        if (currentPoints.length <= 2) return log("Current path must keep at least 2 points.");
+        currentPoints.splice(activeVertex.index, 1);
+        setActiveVertex("current", Math.min(activeVertex.index, currentPoints.length - 1));
+        redrawOverlay();
+        log("Deleted active vertex from current path.");
+        e.preventDefault();
+        return;
+      }
+
+      if (activeVertex.target === "selected" && selectedPathIndex >= 0 && selectedPathIndex < savedPaths.length) {
+        const pts = savedPaths[selectedPathIndex].points;
+        if (pts.length <= 2) return log("Selected path must keep at least 2 points.");
+        pts.splice(activeVertex.index, 1);
+        setActiveVertex("selected", Math.min(activeVertex.index, pts.length - 1));
+        redrawOverlay();
+        log(`Deleted active vertex from ${savedPaths[selectedPathIndex].id}.`);
+        e.preventDefault();
+      }
+    });
+
+    document.getElementById("openBtn").addEventListener("click", openImage);
+    document.getElementById("previewBtn").addEventListener("click", loadPreview);
+    document.getElementById("reloadPreviewBtn").addEventListener("click", async () => {
+      const pLow = Number(document.getElementById("pLow").value);
+      const pHigh = Number(document.getElementById("pHigh").value);
+      const res = await fetch(`${apiBase()}/image-preview?p_low=${encodeURIComponent(pLow)}&p_high=${encodeURIComponent(pHigh)}&max_dim=1400`);
+      const data = await res.json();
+      if (!res.ok) return log(`image-preview error: ${JSON.stringify(data)}`);
+      previewBaseU8 = Uint8Array.from(atob(data.pixels_u8_b64), c => c.charCodeAt(0));
+      previewFilteredU8 = null;
+      previewWidth = data.width;
+      previewHeight = data.height;
+      sourceWidth = data.source_width || data.width;
+      sourceHeight = data.source_height || data.height;
+      sourceScaleX = data.scale_x || (sourceWidth / Math.max(1, previewWidth));
+      sourceScaleY = data.scale_y || (sourceHeight / Math.max(1, previewHeight));
+      imgCanvas.width = overlayCanvas.width = previewWidth;
+      imgCanvas.height = overlayCanvas.height = previewHeight;
+      document.getElementById("wrap").style.width = `${data.width}px`;
+      document.getElementById("wrap").style.height = `${data.height}px`;
+      renderDisplayImage();
+      log(`Preview reloaded with pLow=${pLow}, pHigh=${pHigh}`);
+    });
+    document.getElementById("startBtn").addEventListener("click", () => {
+      currentPoints = [];
+      editingPathIndex = -1;
+      clearActiveVertex();
+      redrawOverlay();
+      log("Started new path.");
+    });
+    document.getElementById("finishBtn").addEventListener("click", finishPath);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      currentPoints = [];
+      editingPathIndex = -1;
+      clearActiveVertex();
+      redrawOverlay();
+      log("Cleared current path.");
+    });
+    document.getElementById("removeLastBtn").addEventListener("click", () => {
+      currentPoints.pop();
+      clearActiveVertex();
+      redrawOverlay();
+    });
+    document.getElementById("exportBtn").addEventListener("click", exportCsv);
+    document.getElementById("importBtn").addEventListener("click", () => {
+      document.getElementById("importFile").click();
+    });
+    document.getElementById("importFile").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => importCsvText(String(reader.result || ""));
+      reader.readAsText(f);
+      e.target.value = "";
+    });
+    document.getElementById("saveSelBtn").addEventListener("click", saveSelectedStyle);
+    document.getElementById("editSelBtn").addEventListener("click", editSelectedGeometry);
+    document.getElementById("dupSelBtn").addEventListener("click", duplicateSelected);
+    document.getElementById("delSelBtn").addEventListener("click", deleteSelected);
+    document.getElementById("smoothCurrentBtn").addEventListener("click", smoothCurrentPath);
+    document.getElementById("smoothSelectedBtn").addEventListener("click", smoothSelectedPath);
+    document.getElementById("refineSelBtn").addEventListener("click", refineSelectedToDensity);
+    document.getElementById("applyFilterBtn").addEventListener("click", applyViewFilter);
+    document.getElementById("resetFilterBtn").addEventListener("click", () => {
+      document.getElementById("viewFilter").value = "none";
+      previewFilteredU8 = null;
+      renderDisplayImage();
+      log("Filter reset.");
+    });
+    document.getElementById("fitBtn").addEventListener("click", () => {
+      fitView();
+      log("View fit.");
+    });
+    document.getElementById("oneToOneBtn").addEventListener("click", () => {
+      view.scale = 1.0;
+      view.tx = 0.0;
+      view.ty = 0.0;
+      renderView();
+      log("View set to 1:1.");
+    });
+    document.getElementById("resetViewBtn").addEventListener("click", () => {
+      view = { scale: 1.0, tx: 0.0, ty: 0.0 };
+      renderView();
+      log("View reset.");
+    });
+
+    const displayIds = ["brightness", "contrast", "gamma", "dispMin", "dispMax", "invert"];
+    for (const id of displayIds) {
+      document.getElementById(id).addEventListener("input", () => {
+        document.getElementById("brightnessVal").textContent = document.getElementById("brightness").value;
+        document.getElementById("contrastVal").textContent = document.getElementById("contrast").value;
+        document.getElementById("gammaVal").textContent = (Number(document.getElementById("gamma").value) / 100).toFixed(2);
+        renderDisplayImage();
+      });
+    }
+    document.getElementById("autoDisplayBtn").addEventListener("click", () => {
+      document.getElementById("brightness").value = 0;
+      document.getElementById("contrast").value = 0;
+      document.getElementById("gamma").value = 100;
+      document.getElementById("dispMin").value = 0;
+      document.getElementById("dispMax").value = 255;
+      document.getElementById("invert").checked = false;
+      document.getElementById("brightnessVal").textContent = "0";
+      document.getElementById("contrastVal").textContent = "0";
+      document.getElementById("gammaVal").textContent = "1.00";
+      renderDisplayImage();
+    });
+    document.getElementById("interactionMode").addEventListener("change", () => {
+      const mode = interactionMode();
+      clearActiveVertex();
+      if (mode === "navigate") {
+        overlayCanvas.style.cursor = "default";
+        log("Interaction mode: Navigate (drawing/editing disabled; pan/zoom enabled).");
+      } else {
+        overlayCanvas.style.cursor = "crosshair";
+        log("Interaction mode: Annotate (drawing/editing enabled).");
+      }
+      redrawOverlay();
+    });
+  </script>
+</body>
+</html>
+

@@ -292,6 +292,30 @@ TOOL_DESCRIPTIONS: Dict[str, Dict[str, Any]] = {
         }
     },
     
+    "basehunter": {
+        "purpose": "Score and classify nucleic-acid bases in cryo-EM maps",
+        "description": "Evaluates local density and geometry for each nucleotide, assigns a BaseHunter score, and classifies bases (purine/pyrimidine) to flag weak or inconsistent residues.",
+        "inputs": {
+            "required": ["map", "model"],
+            "optional": ["chain", "resolution", "min_residues", "out_dir"]
+        },
+        "outputs": {
+            "basehunter_scores.csv": "Per-residue scores and predicted base class with confidence",
+            "basehunter_summary.json": "Global statistics and recommended thresholds"
+        },
+        "common_use_cases": [
+            "Finding poorly supported bases in high-resolution DNA/RNA maps",
+            "Checking purine/pyrimidine assignments against the map",
+            "Prioritizing bases for manual rebuilding or sequence correction"
+        ],
+        "typical_workflow": "dnaaxis → dnabuild → basehunter (for DNA path + base QC)",
+        "parameter_guidance": {
+            "resolution": "Map resolution in Å (e.g. 2.5–3.5). Used to tune density features; set to the refinement resolution.",
+            "chain": "Restrict analysis to a specific nucleic-acid chain (e.g. A). Omit to analyze all chains.",
+            "min_residues": "Minimum contiguous nucleotides per segment to score (default 4). Lower for very short fragments."
+        }
+    },
+    
     "validate": {
         "purpose": "Assess cryoEM models with resolution-dependent validation metrics",
         "description": "Computes Ringer-lite, Q-lite, Cα-tube, local CC, and geometry features. Provides per-residue quality scores.",
@@ -448,31 +472,31 @@ WORKFLOW_TEMPLATES: Dict[str, Dict[str, Any]] = {
         ]
     },
     "dna_basehunter_build": {
-        "description": "Classify base pairs and build a poly-AT DNA model",
-        "prerequisites": ["density_map", "base_pair_list"],
+        "description": "Trace DNA axis, build a model, then classify bases with BaseHunter",
+        "prerequisites": ["density_map"],
         "steps": [
             {
                 "step": 1,
-                "tool": "basehunter",
-                "action": "Compare base-pair densities against templates",
-                "command": "crymodel basehunter compare --input-file base_pairs.txt --threshold 0.45 --out-dir outputs/basehunter"
-            },
-            {
-                "step": 2,
                 "tool": "dnaaxis",
                 "action": "Trace centerline through dsDNA density",
                 "command": "crymodel dnaaxis extract --map dna_map.mrc --threshold 0.25 --guides-pdb guides.pdb --out-pdb dna_axis.pdb --out-mrc dna_axis.mrc"
             },
             {
-                "step": 3,
+                "step": 2,
                 "tool": "dnabuild",
-                "action": "Build poly-AT model from centerline",
-                "command": "crymodel dnabuild build-2bp --centerline-pdb dna_axis.pdb --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb --out-pdb dna_model.pdb"
+                "action": "Build a DNA model from the extracted axis",
+                "command": "crymodel dnabuild build --centerline-pdb dna_axis.pdb --map dna_map.mrc --out-pdb dna_initial.pdb --resolution 3.0"
+            },
+            {
+                "step": 3,
+                "tool": "basehunter",
+                "action": "Classify bases and generate a summary table",
+                "command": "crymodel basehunter --map dna_map.mrc --model dna_initial.pdb --out-dir outputs/basehunter --resolution 3.0"
             }
         ],
         "notes": [
-            "Use BaseHunter outputs for QC of base-pair assignments",
-            "Adjust thresholds based on map filtering and blur"
+            "Use BaseHunter scores and predicted classes to flag weak or inconsistent bases",
+            "Adjust thresholds and resolution based on map quality"
         ]
     },
     "basehunter_classify": {
