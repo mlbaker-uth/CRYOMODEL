@@ -37,4 +37,5 @@ cryomodel = [
   "mutate/data/templates/*.pdb",
   "data/benchmark_data.json",
   "data/monomers/*.cif",
+  "data/basehunter/NEW-DNA-TEMPLATES/*",
 ]

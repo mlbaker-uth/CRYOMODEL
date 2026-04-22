@@ -7,10 +7,11 @@ import typer
 import os
 
 from ..nucleotide.basehunter_enhanced import classify_base_pairs
+from ..resources import basehunter_template_pack_dir
 
 app = typer.Typer(no_args_is_help=True)
 
-DEFAULT_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "data" / "DNA-TEMPLATES"
+DEFAULT_TEMPLATE_DIR = basehunter_template_pack_dir()
 
 
 @app.command()

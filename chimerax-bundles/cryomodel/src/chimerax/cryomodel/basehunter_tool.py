@@ -27,6 +27,7 @@ from Qt.QtWidgets import (
 
 from cryomodel.nucleotide.interactive_pairs import Marker3D, PairResult, PairState
 from cryomodel.nucleotide.template_registry import validate_template_pack
+from cryomodel.resources import basehunter_template_pack_dir
 
 
 def _disk_path_for_model(m) -> Optional[str]:
@@ -115,7 +116,7 @@ class BaseHunterInteractiveTool(ToolInstance):
 
         path_row = QHBoxLayout()
         self.template_dir = QLineEdit()
-        self.template_dir.setText("/Users/mbaker-local/Downloads/CRYOMODEL_LOCAL/NEW-DNA-TEMPLATES")
+        self.template_dir.setText(str(basehunter_template_pack_dir()))
         browse = QPushButton("Browse")
         browse.clicked.connect(self._browse_template_dir)
         path_row.addWidget(self.template_dir)

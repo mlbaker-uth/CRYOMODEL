@@ -1,57 +1,247 @@
-CRYOMODEL
-=========
+Install and Setup Guide (Linux, macOS, Windows)
+================================================
 
-CryoModel is a unified cryo-EM modeling toolkit with a command-line interface
-(`cryomodel`) and multiple modules for modeling, fitting, validation, and
-workflow automation.
+This is a complete setup guide for CLI and ChimeraX users.
 
-If you are new to Python or the terminal, start with `INSTALL.md`.
+Repository:
 
-Quick Start
------------
+- https://github.com/mlbaker-uth/CRYOMODEL
 
-Install from source (recommended for development):
+Contents
+--------
 
+1. What you need
+2. Download the code
+3. Install CRYOMODEL CLI
+4. Verify CLI install
+5. Install the ChimeraX bundle
+6. Update workflow
+7. Troubleshooting
+
+
+1) What you need
+----------------
+
+Required:
+
+- Python 3.9 or newer
+- pip
+- Git (recommended)
+
+Optional but common:
+
+- UCSF ChimeraX (for interactive tools and bundle commands)
+
+Version checks (run in a terminal):
+
+```bash
+python --version
+pip --version
+git --version
 ```
-python -m venv .venv
+
+If `python` is not recognized, try `python3`.
+
+
+2) Download the code
+--------------------
+
+### Option A (recommended): Git clone
+
+```bash
+git clone https://github.com/mlbaker-uth/CRYOMODEL.git
+cd CRYOMODEL
+```
+
+### Option B: Download ZIP
+
+1. Open https://github.com/mlbaker-uth/CRYOMODEL
+2. Click Code -> Download ZIP
+3. Unzip
+4. Open a terminal in the unzipped `CRYOMODEL` folder
+
+
+3) Install CRYOMODEL CLI
+------------------------
+
+Use a virtual environment so dependencies stay isolated.
+
+### Linux
+
+```bash
+cd /path/to/CRYOMODEL
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -U pip
+python -m pip install -U pip
 pip install -e .
 ```
 
-Run a quick check:
+### macOS
 
-```
-cryomodel --help
+```bash
+cd /path/to/CRYOMODEL
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+pip install -e .
 ```
 
-Optional features:
+### Windows (PowerShell)
 
+```powershell
+cd C:\path\to\CRYOMODEL
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+pip install -e .
 ```
+
+If activation is blocked by execution policy, run once in PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Then open a new PowerShell window and activate again.
+
+### Optional extras
+
+Install optional dependency groups as needed:
+
+```bash
 pip install -e ".[ml]"
 pip install -e ".[pathwalk]"
 ```
 
-Docs
-----
 
-- `INSTALL.md` - step-by-step install for new users
-- `CRYOMODEL_USER_GUIDE.md` - end-to-end usage
-- `WORKFLOW_GUIDE.md` - workflow system
-- `ASSISTANT_GUIDE.md` - assistant usage
-- `BASEHUNTER_TEMPLATES.md` - BaseHunter templates
+4) Verify CLI install
+---------------------
 
-Map filtering
--------------
+In the same activated environment:
 
-- `cryomodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` - apply a filter (lowpass, highpass, bandpass, gaussian, threshold, binary, laplacian, median, bilateral, butterworth-lowpass/highpass, normalize)
-- `cryomodel mapfilter list` - list available filters and options
+```bash
+cryomodel --help
+```
 
-DNA Tools
----------
+You should see command help text.
 
-- `cryomodel dnaaxis extract` - trace a dsDNA centerline from density (supports guide PDBs)
-- `cryomodel dnabuild build` - build poly-AT dsDNA from a map
-- `cryomodel dnabuild build-2bp` - build poly-AT dsDNA from a centerline using a 2-bp template
+Quick sanity checks:
+
+```bash
+cryomodel mapfilter list
+cryomodel --version
+```
 
 
+5) Install the ChimeraX bundle
+------------------------------
+
+If you only use CLI tools, you can skip this section.
+
+Bundle location in this repo:
+
+- `chimerax-bundles/cryomodel`
+
+In ChimeraX command line (not shell terminal), run:
+
+```text
+devel clean /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
+devel install /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
+```
+
+Then verify ChimeraX command registration:
+
+```text
+cryomodel_manifest
+```
+
+Expected result:
+
+- A manifest file is written (default `~/cryomodel_chimerax_manifest.json`)
+
+Notes:
+
+- Use absolute paths.
+- Re-run `devel install` after pulling new changes to the bundle.
+
+
+6) Update workflow
+------------------
+
+After first install, future updates are usually:
+
+```bash
+cd /path/to/CRYOMODEL
+git pull
+source .venv/bin/activate   # Linux/macOS
+# OR .\.venv\Scripts\Activate.ps1  # Windows
+pip install -e .
+```
+
+For ChimeraX users, also run in ChimeraX:
+
+```text
+devel install /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
+```
+
+
+7) Troubleshooting
+------------------
+
+### `python` / `python3` / `py` not found
+
+- Linux/macOS: install Python 3 from your package manager or python.org
+- Windows: install Python from python.org and enable PATH option
+
+### `cryomodel: command not found`
+
+- Virtual environment is not active
+- Reactivate environment and run:
+  ```bash
+  pip install -e .
+  ```
+
+### `pip` installs to wrong Python
+
+Use:
+
+```bash
+python -m pip install -U pip
+python -m pip install -e .
+```
+
+### Windows activation script blocked
+
+Run:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Then open a new PowerShell window.
+
+### ChimeraX says command not found (`devel` or `cryomodel_manifest`)
+
+- Ensure command is run in ChimeraX command line, not OS terminal
+- Confirm bundle path is correct and absolute
+- Re-run:
+  ```text
+  devel clean /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
+  devel install /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
+  ```
+
+### Clean reinstall
+
+From repo root:
+
+```bash
+rm -rf .venv  # Linux/macOS
+```
+
+Windows PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+```
+
+Then repeat sections 3-5.

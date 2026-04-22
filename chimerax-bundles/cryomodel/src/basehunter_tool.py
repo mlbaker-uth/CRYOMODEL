@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from cryomodel.resources import basehunter_template_pack_dir
+
 from chimerax.core.tools import ToolInstance
 from chimerax.ui import MainToolWindow
 from Qt.QtCore import QTimer
@@ -186,7 +188,7 @@ class BaseHunterInteractiveTool(ToolInstance):
         tmpl_layout = QVBoxLayout()
 
         path_row = QHBoxLayout()
-        self.template_dir = QLineEdit("/Users/mbaker-local/Downloads/CRYOMODEL_LOCAL/NEW-DNA-TEMPLATES")
+        self.template_dir = QLineEdit(str(basehunter_template_pack_dir()))
         path_row.addWidget(self.template_dir)
         browse = QPushButton("Browse")
         browse.clicked.connect(self._browse_templates)

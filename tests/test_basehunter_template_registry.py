@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from cryomodel.nucleotide.template_registry import parse_templates_txt, validate_template_pack
+from cryomodel.resources import basehunter_template_pack_dir
 
 
 def test_parse_templates_txt_extracts_thresholds(tmp_path: Path) -> None:
@@ -26,12 +29,13 @@ def test_parse_templates_txt_extracts_thresholds(tmp_path: Path) -> None:
     assert entries[1].threshold is None
 
 
-def test_validate_template_pack_reports_missing() -> None:
-    root = Path("/Users/mbaker-local/Downloads/CRYOMODEL_LOCAL/NEW-DNA-TEMPLATES")
+def test_validate_template_pack_bundled_defaults() -> None:
+    root = basehunter_template_pack_dir()
+    if not root.is_dir():
+        pytest.skip("bundled BaseHunter template pack not present")
     res = validate_template_pack(root)
     assert len(res.entries) > 0
     assert "templateBP-purine-3.mrc" in {e.filename for e in res.entries}
-    # This pack currently has metadata listing files not present on disk.
-    assert len(res.missing_files) > 0
-    assert "templateBP-pyrimidine.mrc" in res.missing_files
+    assert res.ok
+    assert len(res.missing_files) == 0
 

@@ -39,6 +39,7 @@ _tmp_seqc/
 outputs/
 outputs_test_*/
 *.mrc
+!cryomodel/data/basehunter/**/*.mrc
 *.map
 *.npy
 
