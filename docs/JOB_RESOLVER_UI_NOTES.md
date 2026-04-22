@@ -1,6 +1,6 @@
 # Job Resolver UI Integration Notes
 
-This note describes how to wire `crymodel.workflow.resolver.resolve_command()` into a card-based UI and map resolver errors to field highlights.
+This note describes how to wire `cryomodel.workflow.resolver.resolve_command()` into a card-based UI and map resolver errors to field highlights.
 
 ## 1) Resolver wiring flow
 
@@ -16,7 +16,7 @@ For every selected card in the workspace:
 3. Call:
 
 ```python
-from crymodel.workflow.resolver import resolve_command
+from cryomodel.workflow.resolver import resolve_command
 result = resolve_command(card, spec, workspace)
 ```
 
@@ -99,7 +99,7 @@ Request:
 ```json
 {
   "card_id": "card_b",
-  "command": "crymodel dnabuild build --centerline-pdb ...",
+  "command": "cryomodel dnabuild build --centerline-pdb ...",
   "cwd": "/path/to/project"
 }
 ```

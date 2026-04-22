@@ -16,25 +16,25 @@ The CryoModel AI Assistant is a rule-based guidance system that helps users navi
 
 ```bash
 # Ask a question
-crymodel assistant ask "How do I build a model from my sequence?"
+cryomodel assistant ask "How do I build a model from my sequence?"
 
 # Get workflow suggestion
-crymodel assistant suggest "find ligands" --files model.pdb,map.mrc
+cryomodel assistant suggest "find ligands" --files model.pdb,map.mrc
 
 # Explain a tool
-crymodel assistant explain findligands
+cryomodel assistant explain findligands
 
 # Explain a parameter
-crymodel assistant explain foldhunter --parameter plddt_threshold
+cryomodel assistant explain foldhunter --parameter plddt_threshold
 
 # Troubleshoot an error
-crymodel assistant troubleshoot "empty output files" --tool findligands
+cryomodel assistant troubleshoot "empty output files" --tool findligands
 
 # Get resolution-based guidance
-crymodel assistant resolution 2.8
+cryomodel assistant resolution 2.8
 
 # Summarize map/model and recent command history
-crymodel assistant diagnose --map map.mrc --model model.pdb
+cryomodel assistant diagnose --map map.mrc --model model.pdb
 ```
 
 ## Knowledge Base
@@ -99,12 +99,12 @@ The assistant will:
 ## Architecture
 
 ```
-crymodel/assistant/
+cryomodel/assistant/
 ├── __init__.py
 ├── knowledge_base.py    # Structured knowledge (tools, workflows, errors)
 └── assistant.py          # Rule-based assistant logic
 
-crymodel/cli/
+cryomodel/cli/
 └── assistant.py          # CLI interface
 ```
 
@@ -160,11 +160,11 @@ The assistant can help users create workflow files:
 
 ```bash
 # Get workflow suggestion
-crymodel assistant suggest "build model" --files sequence.fasta,map.mrc
+cryomodel assistant suggest "build model" --files sequence.fasta,map.mrc
 
 # User creates workflow.yaml based on suggestion
 # Execute workflow
-crymodel workflow run workflow.yaml
+cryomodel workflow run workflow.yaml
 ```
 
 ## Best Practices

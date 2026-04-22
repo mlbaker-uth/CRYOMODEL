@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryoModel Project Manager</title>
+  <link rel="icon" type="image/png" href="static/branding/cryomodel-app-icon.png" />
+  <link rel="stylesheet" href="cryomodel_manager.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <div class="header-brand">
+        <img
+          class="header-icon"
+          src="static/branding/cryomodel-app-icon.png"
+          width="56"
+          height="56"
+          alt="CryoModel"
+        />
+        <div class="header-titles">
+          <h1>CryoModel</h1>
+          <p>Structural Modeling &amp; CryoEM Workflow Platform</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="actions">
+      <button id="newBtn" class="btn primary">+ New Project</button>
+      <button id="openBtn" class="btn">Open Project</button>
+      <button id="deleteBtn" class="btn danger">Delete Entry</button>
+    </div>
+
+    <section class="card">
+      <h2>Recent Projects</h2>
+      <p class="list-help muted">Click a project to load its settings, then use <strong>Launch Application</strong>. Launch will save current settings before opening the UI.</p>
+      <div id="projectsList" class="list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Environment &amp; Settings</h2>
+      <div class="grid">
+        <label>Name<input id="name" type="text" /></label>
+        <label class="project-dir-label">Project directory
+          <div class="with-btn">
+            <input id="projectRoot" type="text" autocomplete="off" />
+            <button id="browseProjectBtn" type="button" class="btn small">Browse</button>
+          </div>
+          <button id="useHomeBtn" type="button" class="btn small use-home-btn">Use Home</button>
+          <div id="projectRootHint" class="muted"></div>
+        </label>
+        <label>API Host<input id="apiHost" type="text" /></label>
+        <label>API Port<input id="apiPort" type="number" /></label>
+        <label>ChimeraX App/Path
+          <div class="with-btn">
+            <input id="chimeraxApp" type="text" />
+            <button id="browseChimeraBtn" type="button" class="btn small">Browse</button>
+          </div>
+        </label>
+        <label>Manifest Path
+          <div class="with-btn">
+            <input id="manifestPath" type="text" />
+            <button id="browseManifestBtn" type="button" class="btn small">Browse</button>
+          </div>
+        </label>
+      </div>
+      <label>Description<textarea id="description" rows="3"></textarea></label>
+      <div class="checks">
+        <label><input id="autoLoadLast" type="checkbox" /> Auto-load last project</label>
+        <label><input id="startServer" type="checkbox" /> Start web server on launch</label>
+        <label><input id="manifestSameAsProject" type="checkbox" /> Manifest uses project directory</label>
+      </div>
+      <div class="row">
+        <button id="saveBtn" class="btn">Save Project Settings</button>
+        <button id="launchBtn" class="btn primary">Launch Application</button>
+      </div>
+    </section>
+
+    <div id="status" class="status"></div>
+  </div>
+  <script src="cryomodel_manager.js"></script>
+</body>
+</html>

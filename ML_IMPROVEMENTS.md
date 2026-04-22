@@ -10,13 +10,13 @@
 
 ## 🚀 New Features Added
 
-### 1. **Coordination Geometry Features** (`crymodel/ml/coordination.py`)
+### 1. **Coordination Geometry Features** (`cryomodel/ml/coordination.py`)
 - **Coordination number**: Count of coordinating atoms (O/N)
 - **Coordination geometry scores**: Tetrahedral vs octahedral geometry scores
 - **Angle statistics**: Mean/std of coordination angles
 - **Why important**: Ions have distinct coordination geometries (e.g., Mg²⁺ is tetrahedral, Ca²⁺ is octahedral)
 
-### 2. **Density Map Features** (`crymodel/ml/density_features.py`)
+### 2. **Density Map Features** (`cryomodel/ml/density_features.py`)
 - **Local density statistics**: Peak, mean, std, min, max within 3Å radius
 - **Local SNR**: Peak/std ratio (indicates signal quality)
 - **Half-map features**: FSC-like metrics from half-maps (if available)

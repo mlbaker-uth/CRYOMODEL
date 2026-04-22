@@ -9,6 +9,7 @@
     .topbar {
       display: flex; gap: 10px; align-items: center; padding: 10px 12px;
       border-bottom: 1px solid #ddd; background: #fafafa;
+      flex-wrap: wrap;
     }
     .layout {
       display: grid;
@@ -37,6 +38,13 @@
     .badge.running { background: #e5f0ff; color: #1f4d8a; }
     .badge.success { background: #dff3df; color: #1e6b1e; }
     .badge.error { background: #ffe4e4; color: #8a1f1f; }
+    .badge.utility { background: #efe8ff; color: #5f3dc4; }
+    /* Development / QA status (per card type) */
+    .badge.dev-production { background: #dff3df; color: #14532d; }
+    .badge.dev-testing { background: #e7f1ff; color: #1e4d8a; }
+    .badge.dev-untested { background: #f0f0f0; color: #555; }
+    .badge.dev-experimental { background: #fff8e6; color: #8a5a00; }
+    .badge.dev-broken { background: #ffe4e4; color: #8a1f1f; }
     .field { margin-bottom: 10px; }
     .field label { display: block; font-size: 12px; margin-bottom: 3px; color: #444; }
     .field input, .field select, .field textarea {
@@ -53,6 +61,26 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
     .logbox { height: 180px; border: 1px solid #ddd; padding: 8px; border-radius: 4px; background: #fafafa; overflow: auto; }
     .small { font-size: 12px; color: #555; }
+    .assistantbar {
+      border-top: 1px solid #ddd;
+      background: #fcfcfc;
+      padding: 10px 12px;
+    }
+    .assistant-row {
+      display: grid;
+      grid-template-columns: 120px 130px minmax(280px, 1fr) 100px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .assistant-log {
+      height: 140px;
+      border: 1px solid #ddd;
+      padding: 8px;
+      border-radius: 4px;
+      background: #fafafa;
+      overflow: auto;
+    }
     @media (max-width: 1280px) {
       .layout { grid-template-columns: 220px minmax(0,1fr) 360px; }
     }
@@ -64,12 +92,29 @@
 <body>
   <div class="topbar">
     <strong>CryoModel DNA Workflow UI Prototype</strong>
+    <span id="workflowProjectTitle" class="small" style="margin-left:6px;color:#1a3a8a;font-weight:600"></span>
     <span class="small">First pass (safe sandbox): no PathMeasure dependencies</span>
+    <button id="projectSettingsBtn" type="button" title="Open Project Manager (same registry as cryomodel manager)">Project</button>
+    <button id="syncRegistryBtn" type="button" title="Load API / ChimeraX / manifest from ~/.cryomodel registry for this CWD">Sync registry</button>
+    <span id="registryProjectLabel" class="small" style="min-width:140px"></span>
+    <label class="small" title="CryoModel manager HTTP API (cryomodel manager serve)">Mgr API</label>
+    <input id="managerApiBase" value="http://127.0.0.1:8011" style="width:130px;padding:4px 6px" />
     <label class="small">API</label>
     <input id="apiBase" value="http://127.0.0.1:8010" style="width:220px;padding:4px 6px" />
     <label class="small">CWD</label>
     <input id="cwd" value="/Users/mbaker-local/Downloads/CRYOMODEL" style="width:320px;padding:4px 6px" />
-    <button id="runAllBtn" class="primary">Run All (A → B → C)</button>
+    <label class="small" title="Written by ChimeraX: cryomodel manifest">Manifest</label>
+    <input id="chimeraManifestPath" placeholder="~/cryomodel_chimerax_manifest.json" style="width:260px;padding:4px 6px" />
+    <button id="loadManifestBtn" type="button">Load manifest</button>
+    <span id="manifestStatus" class="small"></span>
+    <button id="runAllBtn" class="primary">Run All (pipeline)</button>
+    <button id="exportWorkflowBtn" type="button" title="Export current workspace as CryoModel workflow JSON">Export workflow</button>
+    <button id="exportWorkflowYamlBtn" type="button" title="Export current workspace as CryoModel workflow YAML">Export YAML</button>
+    <button id="importWorkflowBtn" type="button" title="Load previously exported workflow JSON">Import workflow</button>
+    <input id="importWorkflowFile" type="file" accept=".json,application/json" style="display:none" />
+    <button id="chimeraxBtn" type="button" title="macOS: opens PDB/MRC outputs via Workflow API">Open outputs in ChimeraX</button>
+    <label class="small">ChimeraX app</label>
+    <input id="chimeraxApp" value="ChimeraX" style="width:130px;padding:4px 6px" title="Name for `open -a` (e.g. ChimeraX or ChimeraX-1.9)" />
     <button id="clearBtn">Clear Workspace</button>
   </div>
 
@@ -90,82 +135,358 @@
     </div>
   </div>
 
-  <script>
-    const SPECS = {
-      dnaaxis_extract: {
-        display_name: "DNA Axis",
-        description: "Extract DNA centerline from map",
-        command_template: 'crymodel dnaaxis extract --map "{map}" --threshold {threshold} --out-pdb "{out_pdb}" --out-mrc "{out_mrc}" {guides_arg}',
-        inputs: [
-          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" },
-          { id: "guides_pdb", label: "Guides PDB (optional)", required: false, artifact_type: "model.structure" }
-        ],
-        params: [
-          { id: "threshold", label: "Threshold", type: "float", required: true, default: 0.25, min: 0.0, max: 10.0 }
-        ],
-        outputs: [
-          { id: "out_pdb", label: "Axis PDB", default: "outputs/dnaaxis/dna_axis.pdb", artifact_type: "model.structure" },
-          { id: "out_mrc", label: "Axis MRC", default: "outputs/dnaaxis/dna_axis.mrc", artifact_type: "map.mrc" }
-        ],
-        arg_builders: {
-          guides_arg: { when_input_present: "guides_pdb", value_template: '--guides-pdb "{guides_pdb}"' }
-        }
-      },
-      dnabuild_build: {
-        display_name: "Build DNA",
-        description: "Build DNA model from extracted centerline",
-        command_template: 'crymodel dnabuild build --centerline-pdb "{centerline_pdb}" --map "{map}" --out-pdb "{out_pdb}" --resolution {resolution} {threshold_arg}',
-        inputs: [
-          { id: "centerline_pdb", label: "Centerline PDB", required: true, artifact_type: "model.structure" },
-          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" }
-        ],
-        params: [
-          { id: "resolution", label: "Resolution (Å)", type: "float", required: true, default: 3.0, min: 0.5, max: 20.0 },
-          { id: "threshold", label: "Threshold (optional)", type: "float", required: false, default: null, min: 0.0, max: 10.0 }
-        ],
-        outputs: [
-          { id: "out_pdb", label: "Built DNA PDB", default: "outputs/dnabuild/dna_initial.pdb", artifact_type: "model.structure" }
-        ],
-        arg_builders: {
-          threshold_arg: { when_input_present: "threshold", value_template: "--threshold {threshold}" }
-        }
-      },
-      basehunter_run: {
-        display_name: "BaseHunter",
-        description: "Classify bases and generate summary table",
-        command_template: 'crymodel basehunter --map "{map}" --model "{model}" --out-dir "{out_dir}" --resolution {resolution} {chain_arg}',
-        inputs: [
-          { id: "map", label: "Map (.mrc)", required: true, artifact_type: "map.mrc" },
-          { id: "model", label: "Model PDB", required: true, artifact_type: "model.structure" }
-        ],
-        params: [
-          { id: "resolution", label: "Resolution (Å)", type: "float", required: true, default: 3.0, min: 0.5, max: 20.0 },
-          { id: "chain", label: "Chain (optional)", type: "string", required: false, default: null }
-        ],
-        outputs: [
-          { id: "out_dir", label: "Output Directory", default: "outputs/basehunter", artifact_type: "dir" },
-          { id: "scores_csv", label: "Scores CSV", default: "outputs/basehunter/basehunter_scores.csv", artifact_type: "table.csv" },
-          { id: "summary_json", label: "Summary JSON", default: "outputs/basehunter/basehunter_summary.json", artifact_type: "json" }
-        ],
-        arg_builders: {
-          chain_arg: { when_input_present: "chain", value_template: "--chain {chain}" }
-        }
-      }
-    };
+  <div class="assistantbar">
+    <div class="assistant-row">
+      <strong>Assistant</strong>
+      <select id="assistantMode">
+        <option value="suggest">suggest</option>
+        <option value="parameter">parameter</option>
+        <option value="program">program</option>
+        <option value="workflow">workflow</option>
+        <option value="ask">ask</option>
+        <option value="troubleshoot">troubleshoot</option>
+        <option value="resolution">resolution</option>
+      </select>
+      <input id="assistantPrompt" placeholder="Ask for workflow, parameter guidance, troubleshooting, etc." />
+      <button id="assistantSendBtn" class="primary" type="button">Send</button>
+    </div>
+    <div id="assistantStatus" class="small" style="margin-bottom:6px"></div>
+    <div id="assistantLog" class="assistant-log mono"></div>
+  </div>
 
-    const ORDER = ["dnaaxis_extract", "dnabuild_build", "basehunter_run"];
+  <script src="static/workflow/workflow_specs.js"></script>
+  <script src="static/workflow/workflow_job_command.js"></script>
+  <script>
+
+    function devStatusBadge(jobType) {
+      const spec = SPECS[jobType];
+      const raw = (spec && spec.dev_status) || "testing";
+      const label = DEV_STATUS_LABELS[raw] || raw;
+      return `<span class="badge dev-${raw}" title="Development status">${label}</span>`;
+    }
+
+    const ORDER = [
+      "mapfilter_apply",
+      "model2map_convert",
+      "affilter_run",
+      "foldhunter_search",
+      "findligands_run",
+      "predictligands_run",
+      "fitprep_check",
+      "validate_run",
+      "pathwalker2_discover",
+      "pathwalker_run",
+      "pathwalker_average_run",
+      "pyhole_analyze",
+      "pyhole_plot_run",
+      "loopcloud_generate",
+      "fitcompare_run",
+      "pdbdomain_identify",
+      "pdbcom_compute",
+      "dnaaxis_extract",
+      "dnabuild_build",
+      "basehunter_run",
+      "pdb_mutate_run",
+      "zonal_refine_run",
+      "seqconservation_run",
+      "seqconservation_diffuse_run",
+      "alignment_sequence_pick_run"
+    ];
+
+    const WORKFLOW_ENV_KEY = "cryomodel.workflow.env.v1";
+    const MANAGER_API_KEY = "cryomodel.managerApiBase";
 
     const state = {
       cards: [],
       selectedCardId: null,
-      nextId: 1
+      nextId: 1,
+      /** @type {{ entries: object[], manifest_path?: string, created_utc?: string } | null} */
+      chimeraManifest: null,
+      assistantLog: "",
+      assistantBusy: false,
+      /** Filled from workflow API GET /ui/home-dir when available */
+      homeDir: ""
     };
+
+    function loadWorkflowEnv() {
+      try {
+        const raw = localStorage.getItem(WORKFLOW_ENV_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveWorkflowEnv(partial) {
+      const cur = loadWorkflowEnv();
+      Object.assign(cur, partial);
+      try {
+        localStorage.setItem(WORKFLOW_ENV_KEY, JSON.stringify(cur));
+      } catch (e) {}
+    }
+
+    function getManagerApiBase() {
+      try {
+        return localStorage.getItem(MANAGER_API_KEY) || "http://127.0.0.1:8011";
+      } catch (e) {
+        return "http://127.0.0.1:8011";
+      }
+    }
+
+    function setManagerApiBase(s) {
+      try {
+        localStorage.setItem(MANAGER_API_KEY, String(s || "").replace(/\/$/, ""));
+      } catch (e) {}
+    }
+
+    function initWorkflowEnvFromStorageAndUrl() {
+      const q = new URLSearchParams(window.location.search);
+      const env = loadWorkflowEnv();
+      const cwdEl = document.getElementById("cwd");
+      const apiEl = document.getElementById("apiBase");
+      if (q.has("cwd")) cwdEl.value = q.get("cwd");
+      else if (env.cwd) cwdEl.value = env.cwd;
+      if (q.has("api")) apiEl.value = q.get("api");
+      else if (env.apiBase) apiEl.value = env.apiBase;
+      const m = document.getElementById("chimeraManifestPath");
+      const cx = document.getElementById("chimeraxApp");
+      if (q.has("manifest")) m.value = q.get("manifest");
+      else if (env.chimeraManifestPath && m) m.value = env.chimeraManifestPath;
+      if (q.has("chimerax")) cx.value = q.get("chimerax");
+      else if (env.chimeraApp && cx) cx.value = env.chimeraxApp;
+      const mab = document.getElementById("managerApiBase");
+      if (mab) mab.value = getManagerApiBase();
+      const titleEl = document.getElementById("workflowProjectTitle");
+      if (titleEl) {
+        if (q.has("project")) titleEl.textContent = q.get("project");
+        else if (env.projectName) titleEl.textContent = env.projectName;
+        else titleEl.textContent = "";
+      }
+      if (q.has("cwd") || q.has("api") || q.has("manifest") || q.has("chimerax") || q.has("project")) {
+        persistTopbarFields();
+      }
+    }
+
+    function persistTopbarFields() {
+      const titleEl = document.getElementById("workflowProjectTitle");
+      saveWorkflowEnv({
+        cwd: document.getElementById("cwd").value.trim(),
+        apiBase: document.getElementById("apiBase").value.replace(/\/$/, ""),
+        chimeraManifestPath: document.getElementById("chimeraManifestPath").value.trim(),
+        chimeraApp: document.getElementById("chimeraxApp").value.trim(),
+        projectName: titleEl ? titleEl.textContent.trim() : ""
+      });
+      const mab = document.getElementById("managerApiBase");
+      if (mab) setManagerApiBase(mab.value);
+    }
+
+    async function fetchHomeDirForManager() {
+      try {
+        const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+        const r = await fetch(`${api}/ui/home-dir`);
+        if (!r.ok) return;
+        const data = await r.json();
+        state.homeDir = data.home_dir || "";
+      } catch (e) {
+        state.homeDir = "";
+      }
+    }
+
+    function openProjectManagerWindow() {
+      const mab = document.getElementById("managerApiBase");
+      const managerApi = (mab && mab.value.trim()) || getManagerApiBase();
+      const ma = managerApi.replace(/\/$/, "");
+      const cwd = document.getElementById("cwd").value.trim();
+      const apiStr = document.getElementById("apiBase").value.replace(/\/$/, "");
+      let host = "127.0.0.1";
+      let port = "8010";
+      try {
+        const u = new URL(apiStr.includes("://") ? apiStr : `http://${apiStr}`);
+        host = u.hostname || host;
+        port = u.port || (u.protocol === "https:" ? "443" : "80");
+      } catch (e) {}
+      const base = new URL("cryomodel_manager.html", window.location.href);
+      const params = new URLSearchParams({
+        api: ma,
+        default_project_root: cwd,
+        default_api_host: host,
+        default_api_port: port
+      });
+      const hd = state.homeDir || "";
+      if (hd) params.set("home_dir", hd);
+      window.open(`${base.href}?${params.toString()}`, "_blank", "noopener,noreferrer");
+    }
+
+    async function syncProjectFromRegistry() {
+      const label = document.getElementById("registryProjectLabel");
+      const managerApi = (document.getElementById("managerApiBase").value || "").trim() || getManagerApiBase();
+      const cwd = document.getElementById("cwd").value.trim();
+      if (!cwd) {
+        alert("Set CWD first.");
+        return;
+      }
+      try {
+        const base = managerApi.replace(/\/$/, "");
+        const r = await fetch(`${base}/manager/projects/match?path=${encodeURIComponent(cwd)}`);
+        if (!r.ok) throw new Error(await r.text());
+        const data = await r.json();
+        if (!data.project) {
+          label.textContent = "No registry entry for this CWD.";
+          return;
+        }
+        const p = data.project;
+        document.getElementById("apiBase").value = p.api_base || document.getElementById("apiBase").value;
+        document.getElementById("chimeraxApp").value = p.chimerax_app || "ChimeraX";
+        document.getElementById("chimeraManifestPath").value = p.manifest_path || "";
+        label.textContent = `Registry: ${p.name || "(unnamed)"}`;
+        const wt = document.getElementById("workflowProjectTitle");
+        if (wt) wt.textContent = p.name || "";
+        persistTopbarFields();
+      } catch (e) {
+        label.textContent = "";
+        alert(`Sync failed (is manager API running at ${managerApi}?): ${e.message || e}`);
+      }
+    }
+
+    function escHtml(s) {
+      return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    }
+
+    function escAttr(s) {
+      return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
+    /** Parse FASTA text into ordered records (first word after > = id), same order as cryomodel fasta-extract. */
+    function parseFastaRecords(text) {
+      const recs = [];
+      let curHeader = null;
+      let curChunks = [];
+      for (const line of String(text || "").split(/\r?\n/)) {
+        const t = line.trim();
+        if (!t) continue;
+        if (t.startsWith(">")) {
+          if (curHeader !== null) recs.push({ header: curHeader, raw: curChunks.join("") });
+          curHeader = t.slice(1).trim().split(/\s+/)[0] || "?";
+          curChunks = [];
+        } else {
+          curChunks.push(t.replace(/\s/g, ""));
+        }
+      }
+      if (curHeader !== null) recs.push({ header: curHeader, raw: curChunks.join("") });
+      return recs;
+    }
+
+    function fillPickSequenceSelect(cardId, records) {
+      const sel = document.getElementById(`pick_seq_${cardId}`);
+      if (!sel) return;
+      const card = getCard(cardId);
+      const cur = card && card.params ? Number(card.params.selected_row) : 0;
+      if (!records.length) {
+        sel.innerHTML = '<option value="">(no sequences loaded)</option>';
+        return;
+      }
+      sel.innerHTML = records
+        .map((r, i) => {
+          const lab = `${i}: ${r.header}`.slice(0, 220);
+          const selected = cur === i ? " selected" : "";
+          return `<option value="${i}"${selected}>${escHtml(lab)}</option>`;
+        })
+        .join("");
+      const pick = Number.isFinite(cur) && cur >= 0 && cur < records.length ? cur : 0;
+      sel.value = String(pick);
+    }
+
+    function wireAlignmentSequencePick(cardId) {
+      const card = getCard(cardId);
+      if (card && card.pick_records && Array.isArray(card.pick_records)) {
+        fillPickSequenceSelect(cardId, card.pick_records);
+      }
+      const fileEl = document.getElementById(`pick_file_${cardId}`);
+      const pasteEl = document.getElementById(`pick_paste_${cardId}`);
+      const seqSel = document.getElementById(`pick_seq_${cardId}`);
+      const loadPaste = document.getElementById(`pick_load_paste_${cardId}`);
+      if (fileEl) {
+        fileEl.addEventListener("change", () => {
+          const f = fileEl.files && fileEl.files[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = () => {
+            const recs = parseFastaRecords(r.result);
+            const c = getCard(cardId);
+            if (c) c.pick_records = recs;
+            fillPickSequenceSelect(cardId, recs);
+            if (recs.length) setParamValue(cardId, "selected_row", "0");
+            validateAndResolve(getCard(cardId));
+            render();
+          };
+          r.readAsText(f);
+        });
+      }
+      if (loadPaste && pasteEl) {
+        loadPaste.addEventListener("click", () => {
+          const recs = parseFastaRecords(pasteEl.value);
+          const c = getCard(cardId);
+          if (c) c.pick_records = recs;
+          fillPickSequenceSelect(cardId, recs);
+          if (recs.length) setParamValue(cardId, "selected_row", "0");
+          validateAndResolve(getCard(cardId));
+          render();
+        });
+      }
+      if (seqSel) {
+        seqSel.addEventListener("change", () => {
+          if (seqSel.value === "") return;
+          setParamValue(cardId, "selected_row", seqSel.value);
+          validateAndResolve(getCard(cardId));
+          render();
+        });
+      }
+    }
+
+    function normalizeParamOption(opt) {
+      if (opt && typeof opt === "object" && "value" in opt) {
+        const value = String(opt.value);
+        const label = opt.label != null ? String(opt.label) : value;
+        return { value, label };
+      }
+      const str = String(opt ?? "");
+      return { value: str, label: str };
+    }
+
+    function buildParamSelectInnerHtml(p, val) {
+      const selVal = String(val ?? "");
+      if (p.option_groups && Array.isArray(p.option_groups)) {
+        return p.option_groups.map((g) => {
+          const gl = escAttr(g.label || "");
+          const inner = (g.options || []).map((opt) => {
+            const { value, label } = normalizeParamOption(opt);
+            const sel = selVal === value ? "selected" : "";
+            return `<option value="${escAttr(value)}" ${sel}>${escHtml(label)}</option>`;
+          }).join("");
+          return `<optgroup label="${gl}">${inner}</optgroup>`;
+        }).join("");
+      }
+      if (p.options && Array.isArray(p.options)) {
+        return p.options.map((opt) => {
+          const { value, label } = normalizeParamOption(opt);
+          const sel = selVal === value ? "selected" : "";
+          return `<option value="${escAttr(value)}" ${sel}>${escHtml(label)}</option>`;
+        }).join("");
+      }
+      return "";
+    }
+
+    function paramUsesSelect(p) {
+      return (p.options && Array.isArray(p.options)) || (p.option_groups && Array.isArray(p.option_groups));
+    }
 
     function addCard(jobType) {
       const spec = SPECS[jobType];
       const cardId = `card_${state.nextId++}`;
       const inputs = {};
-      for (const i of spec.inputs) inputs[i.id] = { mode: "manual", value: "", source: null };
+      for (const i of spec.inputs) {
+        inputs[i.id] = { mode: "manual", value: "", source: null, chimeraIndex: null };
+      }
       const params = {};
       for (const p of spec.params) params[p.id] = p.default;
       const outputsResolved = {};
@@ -181,9 +502,10 @@
         validation_state: "invalid",
         inputs,
         params,
-        outputs: { resolved: outputsResolved, types: outputTypes },
+        outputs: { resolved: outputsResolved, types: outputTypes, base: { ...outputsResolved } },
         last_run: { status: "", log: "", command: "" },
-        validation: { ok: false, errors: [], command: "" }
+        validation: { ok: false, errors: [], command: "" },
+        run_counter: 0
       };
       state.cards.push(card);
       state.selectedCardId = cardId;
@@ -215,6 +537,23 @@
       return out;
     }
 
+    function availableChimeraSources(inputSpec) {
+      const entries = (state.chimeraManifest && state.chimeraManifest.entries) || [];
+      const out = [];
+      entries.forEach((ent, index) => {
+        if (!ent || !ent.path) return;
+        if (inputSpec.artifact_type && ent.artifact_type && inputSpec.artifact_type !== ent.artifact_type) {
+          return;
+        }
+        out.push({
+          index,
+          label: `${ent.label} [${ent.kind}]`,
+          path: ent.path,
+        });
+      });
+      return out;
+    }
+
     function validateAndResolve(card) {
       const spec = SPECS[card.job_type];
       const errors = [];
@@ -222,7 +561,7 @@
 
       // inputs
       for (const inputSpec of spec.inputs) {
-        const b = card.inputs[inputSpec.id] || { mode: "manual", value: "" };
+        const b = card.inputs[inputSpec.id] || { mode: "manual", value: "", chimeraIndex: null };
         if (b.mode === "manual") {
           const val = (b.value ?? "").toString().trim();
           if (inputSpec.required && !val) {
@@ -252,11 +591,29 @@
             continue;
           }
           ctx[inputSpec.id] = val;
+        } else if (b.mode === "chimera") {
+          const entries = (state.chimeraManifest && state.chimeraManifest.entries) || [];
+          const idx = b.chimeraIndex;
+          const ent = typeof idx === "number" ? entries[idx] : null;
+          if (!state.chimeraManifest) {
+            errors.push({ code: "CHIMERA_MANIFEST_MISSING", field: inputSpec.id, message: `Load a ChimeraX manifest first (top bar).` });
+            continue;
+          }
+          if (!ent || !ent.path) {
+            errors.push({ code: "CHIMERA_ENTRY_INVALID", field: inputSpec.id, message: `Choose a manifest entry with a file path for '${inputSpec.id}'.` });
+            continue;
+          }
+          if (inputSpec.artifact_type && ent.artifact_type && inputSpec.artifact_type !== ent.artifact_type) {
+            errors.push({ code: "INHERIT_TYPE_MISMATCH", field: inputSpec.id, message: `Type mismatch for ChimeraX input '${inputSpec.id}'.` });
+            continue;
+          }
+          ctx[inputSpec.id] = ent.path;
         }
       }
 
-      // params
+      // params (skip UI-only fields: not in CLI / workflow export)
       for (const p of spec.params) {
+        if (p.ui_only) continue;
         let raw = card.params[p.id];
         if ((raw === null || raw === undefined || raw === "") && p.required && p.default !== null && p.default !== undefined) {
           raw = p.default;
@@ -289,6 +646,14 @@
         ctx[p.id] = v;
       }
 
+      // Expose selected inputs as workflow outputs (for inheriting paths on downstream cards).
+      if (spec.output_passthrough && card.outputs && card.outputs.resolved) {
+        for (const [outId, inId] of Object.entries(spec.output_passthrough)) {
+          const src = ctx[inId];
+          if (src) card.outputs.resolved[outId] = String(src);
+        }
+      }
+
       for (const o of spec.outputs) {
         ctx[o.id] = ((card.outputs || {}).resolved || {})[o.id] || o.default || "";
       }
@@ -302,6 +667,21 @@
           } else {
             ctx[name] = "";
           }
+        }
+      }
+
+      if (spec.param_arg_builders) {
+        for (const [name, b] of Object.entries(spec.param_arg_builders)) {
+          const key = b.when_param_present;
+          const pv = key ? ctx[key] : undefined;
+          const present = pv !== undefined && pv !== null && String(pv) !== "";
+          if (!present) {
+            ctx[name] = "";
+            continue;
+          }
+          let t = b.value_template;
+          for (const [k, v] of Object.entries(ctx)) t = t.replaceAll(`{${k}}`, String(v));
+          ctx[name] = t;
         }
       }
 
@@ -324,6 +704,11 @@
     async function runCard(cardId) {
       const card = getCard(cardId);
       if (!card) return;
+      if (card.job_type === "pathmeasure_launcher") {
+        await startPathMeasureForCard(card, true);
+        return;
+      }
+      applyRunVersionToOutputs(card);
       const v = validateAndResolve(card);
       render();
       if (!v.ok) return;
@@ -378,6 +763,66 @@
       }
     }
 
+    function versionedPathForRun(pathValue, runNumber, artifactType) {
+      const raw = String(pathValue || "").trim();
+      if (!raw) return raw;
+      if (runNumber <= 0) return raw;
+      const noTrail = artifactType === "dir" ? raw.replace(/\/+$/, "") : raw;
+      const slash = noTrail.lastIndexOf("/");
+      const dir = slash >= 0 ? noTrail.slice(0, slash + 1) : "";
+      const base = slash >= 0 ? noTrail.slice(slash + 1) : noTrail;
+      if (artifactType === "dir") {
+        return `${dir}${base}_${runNumber}`;
+      }
+      const dot = base.lastIndexOf(".");
+      if (dot > 0) {
+        return `${dir}${base.slice(0, dot)}_${runNumber}${base.slice(dot)}`;
+      }
+      return `${dir}${base}_${runNumber}`;
+    }
+
+    function stripTrailingRunSuffix(pathValue, artifactType) {
+      const raw = String(pathValue || "").trim();
+      if (!raw) return raw;
+      if (artifactType === "dir") {
+        return raw.replace(/(?:_\d+)+\/?$/, "");
+      }
+      const slash = raw.lastIndexOf("/");
+      const dir = slash >= 0 ? raw.slice(0, slash + 1) : "";
+      const base = slash >= 0 ? raw.slice(slash + 1) : raw;
+      const dot = base.lastIndexOf(".");
+      if (dot > 0) {
+        const stem = base.slice(0, dot).replace(/(?:_\d+)+$/, "");
+        return `${dir}${stem}${base.slice(dot)}`;
+      }
+      return `${dir}${base.replace(/(?:_\d+)+$/, "")}`;
+    }
+
+    function applyRunVersionToOutputs(card) {
+      if (!card || !card.outputs || !card.outputs.resolved) return;
+      const nextRun = (Number(card.run_counter) || 0) + 1;
+      card.run_counter = nextRun;
+      const resolved = card.outputs.resolved || {};
+      const base = card.outputs.base || {};
+      const types = (card.outputs && card.outputs.types) || {};
+      const spec = SPECS[card.job_type];
+      const skipVersion = new Set((spec && spec.outputs || []).filter((o) => o.skip_run_version).map((o) => o.id));
+      if (!card.outputs.base || Object.keys(card.outputs.base).length === 0) {
+        card.outputs.base = {};
+        for (const [oid, val] of Object.entries(resolved)) {
+          card.outputs.base[oid] = stripTrailingRunSuffix(val, types[oid] || "");
+        }
+      }
+      for (const [oid, val] of Object.entries(card.outputs.base || {})) {
+        if (!val) continue;
+        if (skipVersion.has(oid)) {
+          resolved[oid] = val;
+          continue;
+        }
+        resolved[oid] = versionedPathForRun(val, nextRun, types[oid] || "");
+      }
+    }
+
     async function runAll() {
       for (const jt of ORDER) {
         const c = state.cards.find(x => x.job_type === jt);
@@ -391,7 +836,27 @@
       const card = getCard(cardId);
       if (!card) return;
       card.inputs[inputId].mode = mode;
-      if (mode === "manual") card.inputs[inputId].source = null;
+      if (mode === "manual") {
+        card.inputs[inputId].source = null;
+        card.inputs[inputId].chimeraIndex = null;
+      }
+      if (mode === "inherited") {
+        card.inputs[inputId].chimeraIndex = null;
+      }
+      if (mode === "chimera") {
+        card.inputs[inputId].source = null;
+      }
+      validateAndResolve(card);
+      render();
+    }
+
+    function setChimeraEntry(cardId, inputId, indexStr) {
+      const card = getCard(cardId);
+      if (!card) return;
+      const idx = parseInt(indexStr, 10);
+      card.inputs[inputId].mode = "chimera";
+      card.inputs[inputId].chimeraIndex = Number.isFinite(idx) ? idx : null;
+      card.inputs[inputId].source = null;
       validateAndResolve(card);
       render();
     }
@@ -401,6 +866,7 @@
       if (!card) return;
       card.inputs[inputId].mode = "inherited";
       card.inputs[inputId].source = { card_id: cardSrcId, output_id: outputId };
+      card.inputs[inputId].chimeraIndex = null;
       validateAndResolve(card);
       render();
     }
@@ -421,14 +887,25 @@
       render();
     }
 
+    function catalogExtraBadge(jobType) {
+      if (jobType === "pathmeasure_launcher") return `<span class="badge utility">Utility Tool</span>`;
+      if (jobType === "alignment_sequence_pick_run") return `<span class="badge utility">Bridge</span>`;
+      if (jobType === "pathwalker_average_run" || jobType === "pyhole_plot_run")
+        return `<span class="badge utility">Utility</span>`;
+      if (jobType === "train_ml_run" || jobType === "train_ensemble_run" || jobType === "extract_features_run")
+        return `<span class="badge utility">Expert / ML</span>`;
+      return "";
+    }
+
     function renderCatalog() {
       const el = document.getElementById("catalog");
       el.innerHTML = "";
       for (const [jobType, spec] of Object.entries(SPECS)) {
+        const utilityBadge = catalogExtraBadge(jobType);
         const d = document.createElement("div");
         d.className = "catalog-card";
         d.innerHTML = `
-          <strong>${spec.display_name}</strong>
+          <strong>${spec.display_name}</strong>${utilityBadge}${devStatusBadge(jobType)}
           <div class="small">${spec.description}</div>
           <button>Add Card</button>
         `;
@@ -447,11 +924,14 @@
       for (const c of state.cards) {
         const spec = SPECS[c.job_type];
         validateAndResolve(c);
+        const utilityBadge = catalogExtraBadge(c.job_type);
         const d = document.createElement("div");
         d.className = "workspace-card" + (state.selectedCardId === c.card_id ? " selected" : "");
         d.innerHTML = `
           <div>
             <strong>${spec.display_name}</strong>
+            ${utilityBadge}
+            ${devStatusBadge(c.job_type)}
             <span class="badge ${c.run_state}">${c.run_state}</span>
             <span class="badge ${c.validation_state}">${c.validation_state}</span>
           </div>
@@ -474,6 +954,31 @@
         return;
       }
       const spec = SPECS[card.job_type];
+      if (card.job_type === "pathmeasure_launcher") {
+        const portVal = card.params.port ?? 8008;
+        const logText = (card.last_run && card.last_run.log) || "";
+        el.innerHTML = `
+          <div><strong>${spec.display_name}</strong> <span class="small">(${card.card_id})</span> ${devStatusBadge(card.job_type)}</div>
+          <div class="small" style="margin-bottom:8px">${spec.description}</div>
+          <div class="field">
+            <label>Port *</label>
+            <input id="pm_port" value="${String(portVal).replace(/"/g, "&quot;")}" />
+          </div>
+          <div class="buttons">
+            <button id="pm_start_btn" class="primary">Start + Open PathMeasure</button>
+            <button id="pm_stop_btn">Stop PathMeasure</button>
+            <button id="pm_status_btn">Check Status</button>
+          </div>
+          <h4 style="margin-top:12px">PathMeasure Log</h4>
+          <div class="logbox mono">${logText.replace(/</g, "&lt;")}</div>
+        `;
+        const portInput = document.getElementById("pm_port");
+        portInput.addEventListener("input", (e) => setParamValue(card.card_id, "port", e.target.value));
+        document.getElementById("pm_start_btn").addEventListener("click", () => startPathMeasureForCard(card, true));
+        document.getElementById("pm_stop_btn").addEventListener("click", () => stopPathMeasureForCard(card));
+        document.getElementById("pm_status_btn").addEventListener("click", () => checkPathMeasureForCard(card));
+        return;
+      }
       const v = validateAndResolve(card);
 
       const errByField = {};
@@ -482,7 +987,7 @@
         errByField[e.field].push(e.message);
       }
 
-      let html = `<div><strong>${spec.display_name}</strong> <span class="small">(${card.card_id})</span></div>`;
+      let html = `<div><strong>${spec.display_name}</strong> <span class="small">(${card.card_id})</span> ${devStatusBadge(card.job_type)}</div>`;
       html += `<div class="small" style="margin-bottom:8px">${spec.description}</div>`;
 
       html += `<h4>Inputs</h4>`;
@@ -490,36 +995,83 @@
         const b = card.inputs[inp.id];
         const fieldErr = errByField[inp.id] || [];
         const sources = availableInheritedSources(card, inp);
+        const chims = availableChimeraSources(inp);
+        const hasManifest = !!state.chimeraManifest;
+        const escOpt = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        let body;
+        if (b.mode === "manual") {
+          body = `<input id="input_${inp.id}" class="${fieldErr.length ? "error" : ""}" value="${(b.value ?? "").toString().replace(/"/g, "&quot;")}" />`;
+        } else if (b.mode === "inherited") {
+          body = `<select id="src_${inp.id}" class="${fieldErr.length ? "error" : ""}">
+                  <option value="">Select source...</option>
+                  ${sources.map(s => {
+                    const val = `${s.source.card_id}::${s.source.output_id}`;
+                    const sel = b.source && b.source.card_id === s.source.card_id && b.source.output_id === s.source.output_id ? "selected" : "";
+                    return `<option value="${val}" ${sel}>${escOpt(s.label)}</option>`;
+                  }).join("")}
+                </select>`;
+        } else {
+          body = `<select id="chim_${inp.id}" class="${fieldErr.length ? "error" : ""}">
+                  <option value="">Select from manifest...</option>
+                  ${chims.map(s => {
+                    const sel = b.chimeraIndex === s.index ? "selected" : "";
+                    return `<option value="${s.index}" ${sel}>${escOpt(s.label)} — ${escOpt(s.path)}</option>`;
+                  }).join("")}
+                </select>`;
+        }
         html += `<div class="field">
           <label>${inp.label}${inp.required ? " *" : ""}</label>
           <div class="row">
             <select id="mode_${inp.id}">
               <option value="manual" ${b.mode === "manual" ? "selected" : ""}>Manual</option>
               <option value="inherited" ${b.mode === "inherited" ? "selected" : ""}>Inherited</option>
+              <option value="chimera" ${b.mode === "chimera" ? "selected" : ""} ${hasManifest ? "" : "disabled"} title="${hasManifest ? "" : "Load manifest (top bar) first"}">ChimeraX manifest</option>
             </select>
-            ${b.mode === "manual"
-              ? `<input id="input_${inp.id}" class="${fieldErr.length ? "error" : ""}" value="${(b.value ?? "").toString().replace(/"/g, "&quot;")}" />`
-              : `<select id="src_${inp.id}" class="${fieldErr.length ? "error" : ""}">
-                  <option value="">Select source...</option>
-                  ${sources.map(s => {
-                    const val = `${s.source.card_id}::${s.source.output_id}`;
-                    const sel = b.source && b.source.card_id === s.source.card_id && b.source.output_id === s.source.output_id ? "selected" : "";
-                    return `<option value="${val}" ${sel}>${s.label}</option>`;
-                  }).join("")}
-                </select>`
-            }
+            ${body}
           </div>
           ${fieldErr.map(m => `<div class="errtext">${m}</div>`).join("")}
         </div>`;
+      }
+
+      if (card.job_type === "alignment_sequence_pick_run") {
+        html += `<h4>List sequences (UI only)</h4>
+          <div class="small" style="margin-bottom:8px">
+            <strong>Run</strong> uses the MSA path from Inputs. Load the same file here (or paste FASTA) so names match row indices on disk.
+          </div>
+          <div class="field">
+            <label>Load from file</label>
+            <input type="file" id="pick_file_${card.card_id}" accept=".fa,.fas,.fasta,.faa,.txt,.aln" />
+          </div>
+          <div class="field">
+            <label>Paste FASTA</label>
+            <textarea id="pick_paste_${card.card_id}" rows="5" placeholder=">header&#10;SEQUENCE"></textarea>
+          </div>
+          <div class="buttons" style="margin-bottom:8px">
+            <button type="button" id="pick_load_paste_${card.card_id}">Load from paste</button>
+          </div>
+          <div class="field">
+            <label>Pick sequence</label>
+            <select id="pick_seq_${card.card_id}"><option value="">(Load file or paste, then Load from paste)</option></select>
+          </div>`;
       }
 
       html += `<h4>Parameters</h4>`;
       for (const p of spec.params) {
         const val = card.params[p.id] ?? "";
         const fieldErr = errByField[p.id] || [];
+        let control;
+        if (paramUsesSelect(p)) {
+          const opts = buildParamSelectInnerHtml(p, val);
+          control = `<select id="param_${p.id}" class="${fieldErr.length ? "error" : ""}">${opts}</select>`;
+        } else if (p.type === "textarea") {
+          control = `<textarea id="param_${p.id}" rows="5" class="${fieldErr.length ? "error" : ""}">${escHtml(String(val ?? ""))}</textarea>`;
+        } else {
+          const vEsc = String(val).replace(/"/g, "&quot;");
+          control = `<input id="param_${p.id}" class="${fieldErr.length ? "error" : ""}" value="${vEsc}" />`;
+        }
         html += `<div class="field">
           <label>${p.label}${p.required ? " *" : ""}</label>
-          <input id="param_${p.id}" class="${fieldErr.length ? "error" : ""}" value="${String(val).replace(/"/g, "&quot;")}" />
+          ${control}
           ${fieldErr.map(m => `<div class="errtext">${m}</div>`).join("")}
         </div>`;
       }
@@ -533,16 +1085,30 @@
 
       html += `<h4 style="margin-top:12px">Run Log</h4><div class="logbox mono">${(card.last_run.log || "").replace(/</g,"&lt;")}</div>`;
 
+      let focusRestore = null;
+      const prevActive = document.activeElement;
+      if (prevActive && el.contains(prevActive) && prevActive.id) {
+        const tag = prevActive.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+          focusRestore = {
+            id: prevActive.id,
+            start: typeof prevActive.selectionStart === "number" ? prevActive.selectionStart : null,
+            end: typeof prevActive.selectionEnd === "number" ? prevActive.selectionEnd : null,
+          };
+        }
+      }
+
       el.innerHTML = html;
 
       // wire events
       for (const inp of spec.inputs) {
         const modeSel = document.getElementById(`mode_${inp.id}`);
         modeSel.addEventListener("change", (e) => setInputMode(card.card_id, inp.id, e.target.value));
-        if (card.inputs[inp.id].mode === "manual") {
+        const im = card.inputs[inp.id].mode;
+        if (im === "manual") {
           const input = document.getElementById(`input_${inp.id}`);
           input.addEventListener("input", (e) => setInputValue(card.card_id, inp.id, e.target.value));
-        } else {
+        } else if (im === "inherited") {
           const src = document.getElementById(`src_${inp.id}`);
           src.addEventListener("change", (e) => {
             const v = e.target.value;
@@ -550,30 +1116,505 @@
             const [cid, oid] = v.split("::");
             setInheritedSource(card.card_id, inp.id, cid, oid);
           });
+        } else {
+          const chim = document.getElementById(`chim_${inp.id}`);
+          chim.addEventListener("change", (e) => setChimeraEntry(card.card_id, inp.id, e.target.value));
         }
       }
       for (const p of spec.params) {
-        document.getElementById(`param_${p.id}`).addEventListener("input", (e) => setParamValue(card.card_id, p.id, e.target.value));
+        const el = document.getElementById(`param_${p.id}`);
+        const ev = paramUsesSelect(p) ? "change" : "input";
+        el.addEventListener(ev, (e) => setParamValue(card.card_id, p.id, e.target.value));
+      }
+      if (card.job_type === "alignment_sequence_pick_run") {
+        wireAlignmentSequencePick(card.card_id);
       }
       document.getElementById("validateBtn").addEventListener("click", () => {
         validateAndResolve(card);
         render();
       });
       document.getElementById("runBtn").addEventListener("click", () => runCard(card.card_id));
+
+      if (focusRestore) {
+        const next = document.getElementById(focusRestore.id);
+        if (next && (next.tagName === "INPUT" || next.tagName === "TEXTAREA" || next.tagName === "SELECT")) {
+          next.focus();
+          if (focusRestore.start !== null && typeof next.setSelectionRange === "function") {
+            const nlen = next.value.length;
+            const a = Math.min(focusRestore.start, nlen);
+            const b = Math.min(focusRestore.end ?? focusRestore.start, nlen);
+            next.setSelectionRange(a, b);
+          }
+        }
+      }
     }
 
     function render() {
       renderCatalog();
       renderWorkspace();
       renderOptions();
+      const log = document.getElementById("assistantLog");
+      if (log) log.innerHTML = escHtml(state.assistantLog || "");
+      const status = document.getElementById("assistantStatus");
+      if (status) status.textContent = state.assistantBusy ? "Running assistant..." : "";
+      const btn = document.getElementById("assistantSendBtn");
+      if (btn) btn.disabled = !!state.assistantBusy;
+    }
+
+    function collectWorkflowMetadata() {
+      const defaultName = "ui_exported_workflow";
+      const defaultDesc = "Exported from dna_workflow_ui_demo workspace";
+      const name = (window.prompt("Workflow name:", defaultName) || "").trim();
+      if (!name) return null;
+      const description = (window.prompt("Workflow description:", defaultDesc) || "").trim() || defaultDesc;
+      return { name, description };
+    }
+
+    function toWorkflowDoc(meta = null) {
+      const m = meta || { name: "ui_exported_workflow", description: "Exported from dna_workflow_ui_demo workspace" };
+      const files = {};
+      const steps = [];
+      for (const card of state.cards) {
+        if (card.job_type === "pathmeasure_launcher") continue; // UI utility card, not pipeline workflow step
+        const spec = SPECS[card.job_type];
+        if (!spec) continue;
+        const tc = JOB_TOOL_COMMAND[card.job_type] || { tool: card.job_type, command: "" };
+        const step = {
+          name: card.card_id,
+          tool: tc.tool,
+          command: tc.command,
+          inputs: {},
+          outputs: { ...((card.outputs && card.outputs.resolved) || {}) },
+          depends_on: [],
+        };
+        const deps = new Set();
+
+        for (const inputSpec of spec.inputs) {
+          const b = card.inputs[inputSpec.id];
+          if (!b) continue;
+          if (b.mode === "manual") {
+            const v = (b.value || "").trim();
+            if (v) {
+              step.inputs[inputSpec.id] = v;
+            } else if (inputSpec.required) {
+              const key = `${card.card_id}_${inputSpec.id}`;
+              files[key] = "";
+              step.inputs[inputSpec.id] = `\${${key}}`;
+            }
+          } else if (b.mode === "inherited" && b.source && b.source.card_id && b.source.output_id) {
+            step.inputs[inputSpec.id] = `\${${b.source.card_id}.${b.source.output_id}}`;
+            deps.add(b.source.card_id);
+          } else if (b.mode === "chimera" && state.chimeraManifest && typeof b.chimeraIndex === "number") {
+            const ent = state.chimeraManifest.entries && state.chimeraManifest.entries[b.chimeraIndex];
+            if (ent && ent.path) step.inputs[inputSpec.id] = ent.path;
+          }
+        }
+
+        for (const [k, v] of Object.entries(card.params || {})) {
+          const paramSpec = (spec.params || []).find((pp) => pp.id === k);
+          if (paramSpec && paramSpec.ui_only) continue;
+          if (v !== null && v !== undefined && String(v).trim() !== "") step.inputs[k] = v;
+        }
+        step.depends_on = Array.from(deps);
+        steps.push(step);
+      }
+
+      return {
+        name: m.name,
+        description: m.description,
+        version: "1.0",
+        variables: {},
+        files,
+        parameters: {},
+        steps,
+        ui_workspace: {
+          cards: state.cards,
+          nextId: state.nextId,
+        },
+      };
+    }
+
+    function exportWorkflow() {
+      const meta = collectWorkflowMetadata();
+      if (!meta) return;
+      const doc = toWorkflowDoc(meta);
+      const text = JSON.stringify(doc, null, 2);
+      const blob = new Blob([text], { type: "application/json" });
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const safeName = meta.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      a.download = `${safeName || "cryomodel_workflow"}_${ts}.json`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }
+
+    async function exportWorkflowYaml() {
+      const meta = collectWorkflowMetadata();
+      if (!meta) return;
+      const doc = toWorkflowDoc(meta);
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      try {
+        const resp = await fetch(`${api}/ui/workflow-export-yaml`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workflow: doc }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const d = data.detail;
+          const msg = typeof d === "string" ? d : JSON.stringify(data);
+          throw new Error(msg || resp.statusText);
+        }
+        const text = data.yaml || "";
+        const blob = new Blob([text], { type: "text/yaml" });
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        const safeName = meta.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${safeName || "cryomodel_workflow"}_${ts}.yaml`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      } catch (err) {
+        window.alert(`Could not export YAML (is workflow API running on ${api}?): ${err.message || err}`);
+      }
+    }
+
+    async function importWorkflowFileFromInput(e) {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      const text = await file.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        window.alert(`Could not parse workflow JSON: ${err.message || err}`);
+        return;
+      }
+      if (!data || !Array.isArray(data.steps)) {
+        window.alert("Invalid workflow JSON: missing steps array.");
+        return;
+      }
+
+      if (data.ui_workspace && Array.isArray(data.ui_workspace.cards)) {
+        state.cards = data.ui_workspace.cards;
+        state.nextId = Number.isFinite(data.ui_workspace.nextId) ? data.ui_workspace.nextId : (state.cards.length + 1);
+        state.selectedCardId = state.cards.length ? state.cards[0].card_id : null;
+        render();
+        return;
+      }
+
+      // Fallback: reconstruct a minimal workspace from generic CryoModel workflow steps.
+      const reverseMap = {};
+      for (const [jobType, tc] of Object.entries(JOB_TOOL_COMMAND)) reverseMap[`${tc.tool}:${tc.command}`] = jobType;
+      const cards = [];
+      let nid = 1;
+      for (const step of data.steps) {
+        const jt = reverseMap[`${step.tool}:${step.command}`];
+        if (!jt || !SPECS[jt]) continue;
+        const spec = SPECS[jt];
+        const cardId = `card_${nid++}`;
+        const inputs = {};
+        for (const i of spec.inputs) {
+          const val = (step.inputs && step.inputs[i.id]) != null ? String(step.inputs[i.id]) : "";
+          inputs[i.id] = { mode: "manual", value: val, source: null, chimeraIndex: null };
+        }
+        const params = {};
+        for (const p of spec.params) params[p.id] = (step.inputs && step.inputs[p.id]) ?? p.default;
+        const outputsResolved = {};
+        const outputTypes = {};
+        for (const o of spec.outputs) {
+          outputsResolved[o.id] = (step.outputs && step.outputs[o.id]) || o.default;
+          outputTypes[o.id] = o.artifact_type || "";
+        }
+        cards.push({
+          card_id: cardId,
+          job_type: jt,
+          run_state: "draft",
+          validation_state: "invalid",
+          inputs,
+          params,
+          outputs: { resolved: outputsResolved, types: outputTypes, base: { ...outputsResolved } },
+          last_run: { status: "", log: "", command: "" },
+          validation: { ok: false, errors: [], command: "" },
+          run_counter: 0
+        });
+      }
+      state.cards = cards;
+      state.nextId = nid;
+      state.selectedCardId = cards.length ? cards[0].card_id : null;
+      render();
+    }
+
+    const _CHIMERAX_VIEW_EXT = /\.(pdb|cif|mmcif|mrc|map|ccp4)$/i;
+    const _CHIMERAX_SKIP_OUTPUT_IDS = new Set(["out_dir", "scores_csv", "summary_json"]);
+
+    function collectChimeraXPathStrings() {
+      const paths = [];
+      const seen = new Set();
+      for (const c of state.cards) {
+        const resolved = (c.outputs && c.outputs.resolved) || {};
+        const types = (c.outputs && c.outputs.types) || {};
+        for (const [oid, val] of Object.entries(resolved)) {
+          if (!val || _CHIMERAX_SKIP_OUTPUT_IDS.has(oid)) continue;
+          const t = types[oid] || "";
+          if (t === "dir" || t === "table.csv" || t === "json") continue;
+          const s = String(val).trim();
+          if (!s || !_CHIMERAX_VIEW_EXT.test(s)) continue;
+          if (seen.has(s)) continue;
+          seen.add(s);
+          paths.push(s);
+        }
+      }
+      return paths;
+    }
+
+    async function openOutputsInChimeraX() {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const cwd = document.getElementById("cwd").value.trim();
+      const appName = document.getElementById("chimeraxApp").value.trim();
+      const paths = collectChimeraXPathStrings();
+      if (!paths.length) {
+        window.alert(
+          "No PDB/MRC-class outputs found on workspace cards. Add pipeline cards (outputs use .pdb / .mrc / .map / .ccp4 / .cif), or run the pipeline so files exist under CWD."
+        );
+        return;
+      }
+      try {
+        const resp = await fetch(`${api}/ui/open-chimerax`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths, cwd: cwd || null, app_name: appName || null })
+        });
+        let data = {};
+        try {
+          data = await resp.json();
+        } catch (_) {
+          /* ignore */
+        }
+        if (!resp.ok) {
+          const detail = data.detail;
+          const msg =
+            typeof detail === "string"
+              ? detail
+              : Array.isArray(detail)
+                ? detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
+                : JSON.stringify(data);
+          throw new Error(msg || resp.statusText);
+        }
+        if (data.opened && data.opened.length) {
+          console.info("[ChimeraX] opened:", data.opened);
+        }
+      } catch (err) {
+        window.alert(`Could not open ChimeraX (is the workflow API running on ${api}?): ${err.message || err}`);
+      }
+    }
+
+    async function loadChimeraManifest() {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      let path = document.getElementById("chimeraManifestPath").value.trim();
+      if (!path) path = "~/cryomodel_chimerax_manifest.json";
+      const statusEl = document.getElementById("manifestStatus");
+      statusEl.textContent = " Loading…";
+      try {
+        const resp = await fetch(`${api}/ui/chimerax-manifest`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const d = data.detail;
+          const msg =
+            typeof d === "string"
+              ? d
+              : Array.isArray(d)
+                ? d.map((x) => x.msg || JSON.stringify(x)).join("; ")
+                : JSON.stringify(data);
+          throw new Error(msg || resp.statusText);
+        }
+        state.chimeraManifest = data;
+        const n = (data.entries && data.entries.length) || 0;
+        statusEl.textContent = ` ${n} entr${n === 1 ? "y" : "ies"}`;
+      } catch (err) {
+        state.chimeraManifest = null;
+        statusEl.textContent = "";
+        window.alert(`Could not load manifest: ${err.message || err}`);
+      }
+      render();
+    }
+
+    function _pathMeasurePortForCard(card) {
+      const raw = card && card.params ? card.params.port : 8008;
+      const port = parseInt(String(raw ?? "8008"), 10);
+      return Number.isFinite(port) ? port : 8008;
+    }
+
+    async function startPathMeasureForCard(card, openBrowser = true) {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const cwd = document.getElementById("cwd").value.trim();
+      const port = _pathMeasurePortForCard(card);
+      if (!Number.isFinite(port) || port < 1 || port > 65535) {
+        window.alert("PathMeasure port must be 1-65535.");
+        return;
+      }
+      card.run_state = "running";
+      card.last_run.status = "running";
+      card.last_run.command = `cryomodel pathmeasure serve --host 127.0.0.1 --port ${port}`;
+      card.last_run.log = `[${new Date().toLocaleTimeString()}] Starting PathMeasure on port ${port}...\n`;
+      render();
+      try {
+        const resp = await fetch(`${api}/ui/pathmeasure-start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ host: "127.0.0.1", port, cwd: cwd || null, open_browser: openBrowser }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) {
+          const msg = data.message || data.detail || resp.statusText;
+          throw new Error(msg);
+        }
+        const shownUrl = data.ui_url || data.url;
+        card.run_state = "success";
+        card.last_run.status = "success";
+        card.last_run.log += `PathMeasure running.\n${shownUrl ? `UI: ${shownUrl}\n` : ""}`;
+        if (shownUrl) {
+          try { window.open(shownUrl, "_blank", "noopener"); } catch (_) { /* ignore */ }
+        }
+      } catch (err) {
+        card.run_state = "error";
+        card.last_run.status = "error";
+        card.last_run.log += `Error: ${err.message || err}\n`;
+        window.alert(`Could not launch PathMeasure: ${err.message || err}`);
+      } finally {
+        render();
+      }
+    }
+
+    async function checkPathMeasureForCard(card) {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const port = _pathMeasurePortForCard(card);
+      try {
+        const resp = await fetch(`${api}/ui/pathmeasure-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ host: "127.0.0.1", port }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.detail || resp.statusText);
+        const status = data.running ? `running at ${data.url}` : "not running";
+        card.last_run.log += `[${new Date().toLocaleTimeString()}] Status: ${status}\n`;
+        if (!data.running) card.run_state = "draft";
+        render();
+      } catch (err) {
+        card.last_run.log += `[${new Date().toLocaleTimeString()}] Status check failed: ${err.message || err}\n`;
+        render();
+      }
+    }
+
+    async function stopPathMeasureForCard(card) {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const port = _pathMeasurePortForCard(card);
+      try {
+        const resp = await fetch(`${api}/ui/pathmeasure-stop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ host: "127.0.0.1", port }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.ok === false) {
+          const msg = data.message || data.detail || resp.statusText;
+          throw new Error(msg);
+        }
+        card.run_state = "draft";
+        card.last_run.status = "stopped";
+        card.last_run.log += `[${new Date().toLocaleTimeString()}] PathMeasure stopped.\n`;
+        render();
+      } catch (err) {
+        card.last_run.log += `[${new Date().toLocaleTimeString()}] Stop failed: ${err.message || err}\n`;
+        render();
+        window.alert(`Could not stop PathMeasure: ${err.message || err}`);
+      }
+    }
+
+    async function runAssistant() {
+      const api = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const cwd = document.getElementById("cwd").value.trim();
+      const mode = document.getElementById("assistantMode").value;
+      const prompt = document.getElementById("assistantPrompt").value.trim();
+      if (!prompt) {
+        window.alert("Enter an assistant request.");
+        return;
+      }
+      state.assistantBusy = true;
+      const ts = new Date().toLocaleTimeString();
+      state.assistantLog += `[${ts}] mode=${mode}\n> ${prompt}\n`;
+      render();
+      try {
+        const resp = await fetch(`${api}/ui/assistant`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode, prompt, cwd: cwd || null }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const d = data.detail;
+          const msg = typeof d === "string" ? d : JSON.stringify(data);
+          throw new Error(msg || resp.statusText);
+        }
+        const out = (data.stdout || "").trim();
+        const err = (data.stderr || "").trim();
+        if (out) state.assistantLog += `${out}\n`;
+        if (err) state.assistantLog += `[stderr]\n${err}\n`;
+        state.assistantLog += `\n`;
+      } catch (err) {
+        state.assistantLog += `[assistant error] ${err.message || err}\n\n`;
+      } finally {
+        state.assistantBusy = false;
+        render();
+        const log = document.getElementById("assistantLog");
+        if (log) log.scrollTop = log.scrollHeight;
+      }
     }
 
     document.getElementById("runAllBtn").addEventListener("click", runAll);
+    document.getElementById("exportWorkflowBtn").addEventListener("click", exportWorkflow);
+    document.getElementById("exportWorkflowYamlBtn").addEventListener("click", exportWorkflowYaml);
+    document.getElementById("importWorkflowBtn").addEventListener("click", () => document.getElementById("importWorkflowFile").click());
+    document.getElementById("importWorkflowFile").addEventListener("change", importWorkflowFileFromInput);
+    document.getElementById("chimeraxBtn").addEventListener("click", openOutputsInChimeraX);
+    document.getElementById("loadManifestBtn").addEventListener("click", loadChimeraManifest);
+    document.getElementById("assistantSendBtn").addEventListener("click", runAssistant);
+    document.getElementById("assistantPrompt").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        runAssistant();
+      }
+    });
     document.getElementById("clearBtn").addEventListener("click", () => {
       state.cards = [];
       state.selectedCardId = null;
       state.nextId = 1;
+      state.chimeraManifest = null;
+      const st = document.getElementById("manifestStatus");
+      if (st) st.textContent = "";
       render();
+    });
+
+    initWorkflowEnvFromStorageAndUrl();
+    fetchHomeDirForManager().catch(() => {});
+    ["cwd", "apiBase", "chimeraManifestPath", "chimeraxApp", "managerApiBase"].forEach((id) => {
+      const n = document.getElementById(id);
+      if (n) n.addEventListener("change", persistTopbarFields);
+    });
+    document.getElementById("projectSettingsBtn").addEventListener("click", openProjectManagerWindow);
+    document.getElementById("syncRegistryBtn").addEventListener("click", () => {
+      syncProjectFromRegistry();
     });
 
     render();

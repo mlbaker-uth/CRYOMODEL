@@ -6,16 +6,16 @@ The workflow system allows you to chain multiple CryoModel tools together into a
 
 ```bash
 # Run a workflow
-crymodel workflow run workflow.yaml
+cryomodel workflow run workflow.yaml
 
 # Validate a workflow without running it
-crymodel workflow-validate workflow.yaml
+cryomodel workflow-validate workflow.yaml
 
 # Dry run (print commands without executing)
-crymodel workflow run workflow.yaml --dry-run
+cryomodel workflow run workflow.yaml --dry-run
 
 # Run specific steps only
-crymodel workflow run workflow.yaml --steps step1,step2
+cryomodel workflow run workflow.yaml --steps step1,step2
 ```
 
 ## Workflow File Format

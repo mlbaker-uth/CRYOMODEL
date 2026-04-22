@@ -33,7 +33,7 @@ The system automatically detects templates using the naming pattern:
 ### Basic Command
 
 ```bash
-crymodel basehunter compare \
+cryomodel basehunter compare \
     --input-file input_pairs.txt \
     --threshold 0.3 \
     --out-dir basehunter_outputs

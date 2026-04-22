@@ -12,8 +12,8 @@
 |---------|-------------|
 | `findligands` | Identify and cluster unmodeled density (waters/ligands) |
 | `predictligands` | ML-based ligand prediction |
-| `pathwalk` | Pathwalking (trace backbone in density) |
-| `pathwalk-average` | Average pathwalk results |
+| `pathwalker` | Legacy pathwalking (trace backbone in density); alias `pathwalk` |
+| `pathwalker-average` | Average pathwalker PDBs; alias `pathwalk-average` |
 | `pyhole` | Pore analysis (pyHole) |
 | `pyhole-plot` | Pore plotting |
 | `basehunter` | Nucleotide base classification (purine/pyrimidine) |
@@ -82,22 +82,22 @@
 
 | Scope | Python files | Lines |
 |-------|--------------|-------|
-| **crymodel/** (all) | 113 | **20,084** |
+| **cryomodel/** (all) | 113 | **20,084** |
 | └─ cli | 27 | 3,767 |
 | └─ library (rest) | 86 | 16,317 |
-| **chimerax-bundles/crymodel** | 5 | 1,096 |
+| **chimerax-bundles/cryomodel** | 5 | 1,096 |
 | **Documentation (*.md)** | 22 | 3,563 |
 
-**Total Python in repo (crymodel + ChimeraX bundle): ~21,180 lines**  
+**Total Python in repo (cryomodel + ChimeraX bundle): ~21,180 lines**  
 **Total docs (Markdown): 3,563 lines**
 
 ---
 
 ## 4. Map Filtering (New in This Update)
 
-- **CLI**: `crymodel mapfilter apply`, `crymodel mapfilter list`
+- **CLI**: `cryomodel mapfilter apply`, `cryomodel mapfilter list`
 - **Filters**: lowpass, highpass, bandpass, gaussian, threshold, binary, laplacian, laplacian-sharpen, median, bilateral, butterworth-lowpass, butterworth-highpass, normalize (13 total)
-- **Module**: `crymodel.maps.filters` (+ `crymodel.maps` __init__)
+- **Module**: `cryomodel.maps.filters` (+ `cryomodel.maps` __init__)
 - **User guide**: New §4 “Map Filtering” in `CRYOMODEL_USER_GUIDE.md`
 
 ---

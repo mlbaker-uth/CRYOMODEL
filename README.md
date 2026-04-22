@@ -2,7 +2,7 @@ CRYOMODEL
 =========
 
 CryoModel is a unified cryo-EM modeling toolkit with a command-line interface
-(`crymodel`) and multiple modules for modeling, fitting, validation, and
+(`cryomodel`) and multiple modules for modeling, fitting, validation, and
 workflow automation.
 
 If you are new to Python or the terminal, start with `INSTALL.md`.
@@ -22,7 +22,7 @@ pip install -e .
 Run a quick check:
 
 ```
-crymodel --help
+cryomodel --help
 ```
 
 Optional features:
@@ -44,14 +44,14 @@ Docs
 Map filtering
 -------------
 
-- `crymodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` - apply a filter (lowpass, highpass, bandpass, gaussian, threshold, binary, laplacian, median, bilateral, butterworth-lowpass/highpass, normalize)
-- `crymodel mapfilter list` - list available filters and options
+- `cryomodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` - apply a filter (lowpass, highpass, bandpass, gaussian, threshold, binary, laplacian, median, bilateral, butterworth-lowpass/highpass, normalize)
+- `cryomodel mapfilter list` - list available filters and options
 
 DNA Tools
 ---------
 
-- `crymodel dnaaxis extract` - trace a dsDNA centerline from density (supports guide PDBs)
-- `crymodel dnabuild build` - build poly-AT dsDNA from a map
-- `crymodel dnabuild build-2bp` - build poly-AT dsDNA from a centerline using a 2-bp template
+- `cryomodel dnaaxis extract` - trace a dsDNA centerline from density (supports guide PDBs)
+- `cryomodel dnabuild build` - build poly-AT dsDNA from a map
+- `cryomodel dnabuild build-2bp` - build poly-AT dsDNA from a centerline using a 2-bp template
 
 

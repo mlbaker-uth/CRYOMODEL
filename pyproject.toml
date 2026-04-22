@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "crymodel"
+name = "cryomodel"
 version = "0.1.0"
 description = "Unified cryo-EM modeling toolkit"
 requires-python = ">=3.9"
@@ -18,15 +18,23 @@ dependencies = [
   "matplotlib",
   "pandas",
   "pyyaml",
+  "tqdm",
 ]
 [project.optional-dependencies]
 ml = ["torch"]
 pathwalk = ["ortools"]
 
 [project.scripts]
-crymodel = "crymodel.cli:app"
+cryomodel = "cryomodel.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["crymodel*"]
+include = ["cryomodel*", "crymodel"]
 exclude = ["tests*", "examples*", "outputs*", "chimerax-bundles*", "docs*", "data*"]
+
+[tool.setuptools.package-data]
+cryomodel = [
+  "mutate/data/templates/*.pdb",
+  "data/benchmark_data.json",
+  "data/monomers/*.cif",
+]

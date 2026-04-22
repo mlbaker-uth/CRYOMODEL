@@ -1,42 +1,42 @@
 # Pathwalker Port Summary
 
-The pathwalking program has been successfully ported from CCTBX/Phenix dependencies to the crymodel codebase.
+The pathwalking program has been successfully ported from CCTBX/Phenix dependencies to the cryomodel codebase.
 
 ## What Was Ported
 
 ### Core Modules
 
-1. **`crymodel/pathalker/pseudoatoms.py`**
+1. **`cryomodel/pathalker/pseudoatoms.py`**
    - Pseudoatom generation using clustering methods (KMeans, Spectral Clustering, Agglomerative Clustering, Mean Shift, GMM, Birch)
    - Noise addition for iterative refinement
    - Integrated with existing `MapVolume` class
 
-2. **`crymodel/pathalker/tsp_solver.py`**
+2. **`cryomodel/pathalker/tsp_solver.py`**
    - OR-Tools TSP solver (primary)
    - LKH TSP solver support (optional, requires external executable)
    - TSPLib file format support for LKH
 
-3. **`crymodel/pathalker/distances.py`**
+3. **`cryomodel/pathalker/distances.py`**
    - Euclidean distance matrix computation
    - Map-weighted distance matrix (penalizes paths through low-density regions)
    - TSP distance matrix preparation (adds depot, scales to integers)
 
-4. **`crymodel/pathalker/path_evaluation.py`**
+4. **`cryomodel/pathalker/path_evaluation.py`**
    - C-alpha to C-alpha distance evaluation
    - Path geometry statistics
    - Identifies problematic distances (too short/long)
 
-5. **`crymodel/pathalker/averaging.py`**
+5. **`cryomodel/pathalker/averaging.py`**
    - Averaging multiple pathwalking runs
    - Probability computation for path positions
    - Path alignment and matching
 
-6. **`crymodel/pathalker/pathwalker.py`**
+6. **`cryomodel/pathalker/pathwalker.py`**
    - Main pathwalking engine
    - PDB output functions (with optional probability B-factors)
    - Integrated workflow from map to path
 
-7. **`crymodel/cli/pathwalk.py`**
+7. **`cryomodel/cli/pathwalk.py`**
    - CLI commands: `pathwalk` and `pathwalk-average`
    - Full parameter support
    - Integration with existing CLI infrastructure
@@ -49,8 +49,8 @@ The pathwalking program has been successfully ported from CCTBX/Phenix dependenc
    - Uses NumPy/NumPy-compatible arrays throughout
 
 2. **Integration with Existing Codebase**
-   - Uses `crymodel.io.mrc.MapVolume` for map handling
-   - Uses `crymodel.io.site_export._pdb_atom_line` for PDB writing
+   - Uses `cryomodel.io.mrc.MapVolume` for map handling
+   - Uses `cryomodel.io.site_export._pdb_atom_line` for PDB writing
    - Follows codebase conventions and structure
 
 3. **Improved Error Handling**
@@ -79,7 +79,7 @@ The pathwalking program has been successfully ported from CCTBX/Phenix dependenc
 ### Basic Pathwalking
 
 ```bash
-crymodel pathwalk \
+cryomodel pathwalk \
   --map examples/emd_22898.map \
   --threshold 0.5 \
   --n-residues 200 \
@@ -91,7 +91,7 @@ crymodel pathwalk \
 ### Map-Weighted Pathwalking
 
 ```bash
-crymodel pathwalk \
+cryomodel pathwalk \
   --map examples/emd_22898.map \
   --threshold 0.5 \
   --n-residues 200 \
@@ -103,7 +103,7 @@ crymodel pathwalk \
 ### Averaging Multiple Runs
 
 ```bash
-crymodel pathwalk-average \
+cryomodel pathwalk-average \
   --path-files path1.pdb,path2.pdb,path3.pdb \
   --output-pdb pathwalk_averaged.pdb \
   --probabilistic \

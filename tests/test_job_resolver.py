@@ -1,6 +1,6 @@
 import pytest
 
-from crymodel.workflow.resolver import resolve_command
+from cryomodel.workflow.resolver import resolve_command
 
 
 @pytest.fixture
@@ -9,7 +9,7 @@ def specs():
         "dnaaxis_extract": {
             "command": {
                 "template": (
-                    "crymodel dnaaxis extract --map {map} --threshold {threshold} "
+                    "cryomodel dnaaxis extract --map {map} --threshold {threshold} "
                     "--out-pdb {out_pdb} --out-mrc {out_mrc} {guides_arg}"
                 )
             },
@@ -34,8 +34,9 @@ def specs():
         "dnabuild_build": {
             "command": {
                 "template": (
-                    "crymodel dnabuild build --centerline-pdb {centerline_pdb} --map {map} "
-                    "--out-pdb {out_pdb} --resolution {resolution} {threshold_arg}"
+                    "cryomodel dnabuild build-2bp --centerline-pdb {centerline_pdb} "
+                    "--template-2bp-pdb {template_2bp_pdb} --map {map} "
+                    "--out-pdb {out_pdb} --target-spacing {target_spacing} {threshold_arg}"
                 )
             },
             "inputs": [
@@ -43,7 +44,13 @@ def specs():
                 {"id": "map", "required": True, "artifact_type": "map.mrc"},
             ],
             "params": [
-                {"id": "resolution", "type": "float", "required": True, "default": 3.0, "min": 0.5, "max": 20.0},
+                {
+                    "id": "template_2bp_pdb",
+                    "type": "string",
+                    "required": True,
+                    "default": "data/DNA-TEMPLATES/2AT-template.pdb",
+                },
+                {"id": "target_spacing", "type": "float", "required": True, "default": 3.4, "min": 2.0, "max": 5.0},
                 {"id": "threshold", "type": "float", "required": False, "default": None, "min": 0.0, "max": 10.0},
             ],
             "outputs": [{"id": "out_pdb", "default": "outputs/dnabuild/dna_initial.pdb"}],
@@ -57,7 +64,7 @@ def specs():
         "basehunter_run": {
             "command": {
                 "template": (
-                    "crymodel basehunter --map {map} --model {model} "
+                    "cryomodel basehunter --map {map} --model {model} "
                     "--out-dir {out_dir} --resolution {resolution} {chain_arg}"
                 )
             },
@@ -98,7 +105,7 @@ def test_01_dnaaxis_happy_path(specs):
     }
     result = resolve_command(card, specs["dnaaxis_extract"], _workspace_with_cards())
     assert result.ok
-    assert "crymodel dnaaxis extract" in result.command
+    assert "cryomodel dnaaxis extract" in result.command
     assert "--map /data/map.mrc" in result.command
 
 
@@ -180,11 +187,12 @@ def test_07_inherit_success(specs):
             },
             "map": {"mode": "manual", "value": "/data/map.mrc"},
         },
-        "params": {"resolution": 3.0},
+        "params": {"target_spacing": 3.4},
     }
     ws = {"cards": [src_card, dst_card]}
     result = resolve_command(dst_card, specs["dnabuild_build"], ws)
     assert result.ok
+    assert "dnabuild build-2bp" in result.command
     assert "--centerline-pdb outputs/dnaaxis/dna_axis.pdb" in result.command
 
 
@@ -207,7 +215,7 @@ def test_08_inherit_source_not_ready(specs):
             },
             "map": {"mode": "manual", "value": "/data/map.mrc"},
         },
-        "params": {"resolution": 3.0},
+        "params": {"target_spacing": 3.4},
     }
     ws = {"cards": [src_card, dst_card]}
     result = resolve_command(dst_card, specs["dnabuild_build"], ws)
@@ -234,7 +242,7 @@ def test_09_inherit_type_mismatch(specs):
             },
             "map": {"mode": "manual", "value": "/data/map.mrc"},
         },
-        "params": {"resolution": 3.0},
+        "params": {"target_spacing": 3.4},
     }
     ws = {"cards": [src_card, dst_card]}
     result = resolve_command(dst_card, specs["dnabuild_build"], ws)

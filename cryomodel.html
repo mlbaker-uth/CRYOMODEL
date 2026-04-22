@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CryoModel</title>
+  <link rel="icon" type="image/png" href="static/branding/cryomodel-app-icon.png" />
+  <link rel="stylesheet" href="static/workflow/cryomodel_base.css" />
+  <link rel="stylesheet" href="static/workflow/cryomodel_shell.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img
+        class="brand-mark-img"
+        src="static/branding/cryomodel-app-icon.png"
+        width="38"
+        height="38"
+        alt="CryoModel"
+      />
+      <div>
+        <div class="brand-title">CryoModel</div>
+        <div class="brand-actions">
+          <button type="button" id="projectTitleBtn" class="project-title-btn" title="Open Project Manager; click to pick or register a project">
+            <span id="workflowProjectTitle" class="brand-subtitle">No project selected</span>
+          </button>
+          <button type="button" id="openProjectManagerBtn" class="btn btn-small brand-pm-btn" title="Open Project Manager in a new tab (registry, new projects)">
+            Project manager
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <button type="button" id="runAllBtn" class="btn btn-primary" title="Run workspace cards top to bottom (skips PathMeasure utility)">Run All</button>
+      <button type="button" id="importWorkflowBtn" class="btn" title="Load previously exported workflow JSON">Import workflow</button>
+      <input id="importWorkflowFile" type="file" accept=".json,application/json" hidden />
+      <button type="button" id="exportWorkflowBtn" class="btn" title="Export current workspace as CryoModel workflow JSON">Export workflow</button>
+      <button type="button" id="chimeraxBtn" class="btn btn-chimera" title="Open map/model outputs from workspace cards in ChimeraX">Open in ChimeraX</button>
+    </div>
+
+    <div class="topbar-right">
+      <button type="button" id="legacyWorkflowBtn" class="btn btn-small" title="Open the legacy DNA workflow UI with the same environment">Legacy workflow</button>
+      <button type="button" id="advancedToggle" class="btn btn-icon" aria-expanded="false" aria-controls="advancedPanel" title="Advanced settings">⚙</button>
+    </div>
+  </header>
+
+  <div id="advancedPanel" class="advanced-panel" role="region" aria-label="Advanced settings">
+    <div class="advanced-grid">
+      <label>
+        Working directory (CWD)
+        <input id="cwd" type="text" autocomplete="off" placeholder="/path/to/project" />
+      </label>
+      <label>
+        Workflow API base
+        <input id="apiBase" type="text" autocomplete="off" placeholder="http://127.0.0.1:8010" />
+      </label>
+      <label>
+        ChimeraX manifest path
+        <input id="chimeraManifestPath" type="text" autocomplete="off" placeholder="manifest path" />
+      </label>
+      <div class="advanced-manifest-row">
+        <button type="button" id="loadManifestBtn" class="btn btn-small">Load manifest</button>
+        <span id="manifestStatus" class="helper-text" aria-live="polite"></span>
+      </div>
+      <label>
+        ChimeraX app name
+        <input id="chimeraxApp" type="text" autocomplete="off" value="ChimeraX" />
+      </label>
+      <label>
+        Manager API base
+        <input id="managerApiBase" type="text" autocomplete="off" placeholder="http://127.0.0.1:8011" />
+      </label>
+    </div>
+    <div class="advanced-actions">
+      <button type="button" id="syncRegistryBtn" class="btn btn-small">Sync from registry</button>
+      <span id="registryProjectLabel" class="helper-text" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div class="shell-banner">
+    v0.1 — Import/export workflow JSON (with UI workspace round-trip) and ChimeraX open for PDB/MRC-class outputs. Configure CWD + API in Advanced.
+  </div>
+
+  <main class="layout">
+    <aside class="panel">
+      <div class="panel-header">
+        <h2>Card library</h2>
+        <span id="libraryPanelMeta" class="panel-meta">—</span>
+      </div>
+      <div class="panel-body">
+        <div class="library-toolbar">
+          <input id="librarySearch" class="input" type="search" placeholder="Search cards…" autocomplete="off" />
+        </div>
+        <div class="filter-row" id="libraryTagRow" aria-label="Tag filters"></div>
+        <div id="libraryList" class="library-list-panel"></div>
+      </div>
+    </aside>
+
+    <section class="panel panel-workspace">
+      <div class="panel-header panel-header-split">
+        <h2>Workspace</h2>
+        <div class="panel-header-right">
+          <button type="button" id="clearWorkspaceBtn" class="btn btn-small" title="Remove all steps from the workspace">Clear workspace</button>
+          <span id="workspacePanelMeta" class="panel-meta">—</span>
+        </div>
+      </div>
+      <div class="panel-body" id="workspaceDropZone">
+        <div id="workspaceEmpty" class="shell-empty">
+          <strong>Workspace</strong>
+          Add cards from the library or drag them here. Reorder (↑↓ or drag rows), copy, remove, or run a single step. Use <strong>Run All</strong> in the header for the full stack.
+        </div>
+        <div id="workspaceList"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Inspector</h2>
+      </div>
+      <div class="panel-body">
+        <div id="inspectorEmpty" class="shell-empty">
+          <strong>Inspector</strong>
+          Select a workspace card to edit inputs and parameters. Use the <strong>Command</strong> and <strong>Run log</strong> tabs for preview and output.
+        </div>
+        <div id="inspectorShell" class="inspector-shell" style="display: none">
+          <div class="tabs" role="tablist" id="inspectorTabs" aria-label="Inspector panels">
+            <button type="button" class="tab is-active" role="tab" id="inspectorTabBtnParams" aria-selected="true" aria-controls="inspectorPanelParams" data-tab="params" tabindex="0">Parameters</button>
+            <button type="button" class="tab" role="tab" id="inspectorTabBtnCommand" aria-selected="false" aria-controls="inspectorPanelCommand" data-tab="command" tabindex="-1">Command</button>
+            <button type="button" class="tab" role="tab" id="inspectorTabBtnLog" aria-selected="false" aria-controls="inspectorPanelLog" data-tab="log" tabindex="-1">Run log</button>
+          </div>
+          <div id="inspectorPanelParams" class="tab-panel is-active inspector-tab-panel" role="tabpanel" aria-labelledby="inspectorTabBtnParams" data-tab="params"></div>
+          <div id="inspectorPanelCommand" class="tab-panel inspector-tab-panel" role="tabpanel" aria-labelledby="inspectorTabBtnCommand" data-tab="command"></div>
+          <div id="inspectorPanelLog" class="tab-panel inspector-tab-panel" role="tabpanel" aria-labelledby="inspectorTabBtnLog" data-tab="log"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="assistant-shell" aria-label="Assistant">
+    <div class="assistant-header">
+      <div>
+        <div class="assistant-title">Assistant</div>
+        <div class="assistant-subtitle">
+          Same modes as the legacy workflow UI. Calls the <strong>workflow API</strong> (<code>/ui/assistant</code>) — start <code>cryomodel workflow-ui serve</code> and set API + CWD in Advanced. The manager API is only for projects/registry.
+        </div>
+      </div>
+      <div class="assistant-controls">
+        <label class="assistant-mode-wrap">
+          <span class="assistant-mode-label">Mode</span>
+          <select id="assistantMode" class="input input-compact" aria-label="Assistant mode">
+            <option value="suggest">suggest</option>
+            <option value="parameter">parameter</option>
+            <option value="program">program</option>
+            <option value="workflow">workflow</option>
+            <option value="ask">ask</option>
+            <option value="troubleshoot">troubleshoot</option>
+            <option value="resolution">resolution</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div id="assistantStatus" class="assistant-status helper-text" aria-live="polite"></div>
+    <div class="assistant-input-row">
+      <input id="assistantPrompt" class="input" type="text" placeholder="Ask for workflow, parameter guidance, troubleshooting, etc." aria-label="Assistant message" />
+      <button type="button" id="assistantSendBtn" class="btn btn-primary">Send</button>
+    </div>
+    <div id="assistantLog" class="assistant-log-panel mono" role="log" aria-label="Assistant transcript"></div>
+  </section>
+
+  <footer class="footer-links">
+    <a href="https://cryoemmodeling.org" target="_blank" rel="noopener noreferrer">CryoModel</a>
+    <a href="CRYOMODEL_USER_GUIDE.html" target="_blank" rel="noopener noreferrer">Manual / User guide</a>
+    <a href="mailto:cryomodel@gmail.com" class="footer-email">cryomodel@gmail.com</a>
+  </footer>
+
+  <script src="static/workflow/workflow_specs.js"></script>
+  <script src="static/workflow/workflow_job_command.js"></script>
+  <script src="static/workflow/workflow_engine.js"></script>
+  <script src="static/workflow/workflow_inspector.js"></script>
+  <script src="static/workflow/workflow_io.js"></script>
+  <script src="static/workflow/cryomodel_shell.js"></script>
+  <script src="static/workflow/cryomodel_workflow.js"></script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+/* V2.0 shell — additions on top of cryomodel_base.css */
+
+.advanced-panel {
+  display: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-soft);
+  padding: 12px 18px;
+  box-shadow: inset 0 2px 4px rgba(17, 24, 39, 0.04);
+}
+.advanced-panel.is-open {
+  display: block;
+}
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px 14px;
+  align-items: end;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.advanced-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.advanced-grid input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+.advanced-manifest-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+.advanced-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+.shell-banner {
+  font-size: 12px;
+  color: var(--text-soft);
+  padding: 6px 18px;
+  background: linear-gradient(90deg, var(--primary-soft), transparent);
+  border-bottom: 1px solid var(--border);
+}
+.shell-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  margin: 12px;
+  background: var(--panel-soft);
+}
+.shell-empty strong {
+  color: var(--text);
+  display: block;
+  margin-bottom: 6px;
+}
+.project-title-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.project-title-btn:hover .brand-subtitle {
+  color: var(--primary);
+}
+.brand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 2px;
+}
+.brand-pm-btn {
+  flex-shrink: 0;
+}
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+  border-top: 1px solid var(--border);
+  background: #fbfdff;
+}
+.footer-links a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.footer-links a:hover {
+  text-decoration: underline;
+}
+.footer-links .footer-muted {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.footer-links .footer-email {
+  margin-left: auto;
+}
+.assistant-shell .assistant-input-row {
+  grid-template-columns: 1fr auto;
+}
+
+.brand-mark-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.18);
+}
+
+/* V2.4 — card type placeholder icons (swap for real artwork later) */
+.card-type-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.card-type-icon-inner {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  line-height: 1;
+  user-select: none;
+}
+.card-type-icon-library {
+  align-self: center;
+}
+.workspace-card-head-left {
+  align-items: center;
+}
+
+/* V2.1 library + workspace */
+.library-list-panel {
+  max-height: min(56vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-word;
+}
+.step-pending {
+  background: var(--panel-soft);
+  color: var(--text-soft);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+.step-ready {
+  background: #e0f7f4;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  box-shadow: none;
+}
+.v2-workspace-row {
+  cursor: pointer;
+}
+.workspace-io-line {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.panel-header-split {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.workspace-actions-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.workspace-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.inspector-shell {
+  min-height: 120px;
+}
+.inspector-tab-panel.tab-panel {
+  padding-top: 4px;
+}
+#inspectorTabs .tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.inspector-tab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+.inspector-command-scroll {
+  max-height: min(38vh, 300px);
+  overflow: auto;
+  margin-bottom: 0;
+}
+.inspector-log-scroll {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  margin-bottom: 0;
+}
+.status-draft {
+  background: var(--panel-soft);
+  color: var(--text-soft);
+  border-color: var(--border-strong);
+}
+.status-draft::before {
+  background: var(--text-faint);
+}
+.status-ready {
+  background: #e0f7f4;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+.status-ready::before {
+  background: #14b8a6;
+}
+.assistant-status {
+  padding: 0 16px 6px;
+}
+.assistant-mode-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.assistant-mode-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.assistant-log-panel {
+  margin: 0 16px 16px;
+  padding: 12px 14px;
+  min-height: 100px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-soft);
+}
+.field .errtext {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.input.error,
+select.input.error,
+textarea.input.error {
+  border-color: var(--error);
+  background: #fff8f8;
+}

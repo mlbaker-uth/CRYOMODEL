@@ -5,7 +5,7 @@
 
 ## Files Modified (Only 2 existing files)
 
-### 1. `crymodel/cli/__init__.py`
+### 1. `cryomodel/cli/__init__.py`
 **Changes:**
 - Added 2 lines to import pathwalk commands
 - Added 2 lines to register pathwalk commands
@@ -18,7 +18,7 @@
 
 ## Files Created (All new, no modifications to existing code)
 
-### New Modules in `crymodel/pathalker/`:
+### New Modules in `cryomodel/pathalker/`:
 - `__init__.py` - Module initialization
 - `pseudoatoms.py` - Pseudoatom generation
 - `tsp_solver.py` - TSP solver wrappers
@@ -34,13 +34,13 @@
 ## Dependencies Analysis
 
 ### Pathalker Module Imports from Existing Code:
-1. `crymodel.io.mrc.MapVolume` - **Read-only usage** (no modifications)
-2. `crymodel.io.site_export._pdb_atom_line` - **Read-only usage** (no modifications)
+1. `cryomodel.io.mrc.MapVolume` - **Read-only usage** (no modifications)
+2. `cryomodel.io.site_export._pdb_atom_line` - **Read-only usage** (no modifications)
 
 ### No Imports From:
-- `crymodel.finders.*` - Completely independent
-- `crymodel.ml.*` - Completely independent
-- `crymodel.io.pdb.*` - Not used (uses its own PDB reading in averaging.py)
+- `cryomodel.finders.*` - Completely independent
+- `cryomodel.ml.*` - Completely independent
+- `cryomodel.io.pdb.*` - Not used (uses its own PDB reading in averaging.py)
 - Any other existing modules
 
 ## Verification Tests
@@ -55,7 +55,7 @@
 ## Isolation Guarantees
 
 1. **Module Isolation:**
-   - Pathalker is in its own directory (`crymodel/pathalker/`)
+   - Pathalker is in its own directory (`cryomodel/pathalker/`)
    - No existing modules import from pathalker
    - Pathalker only imports from `io.mrc` and `io.site_export` (read-only)
 

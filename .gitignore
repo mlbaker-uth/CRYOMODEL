@@ -21,7 +21,13 @@ Thumbs.db
 .vscode/
 
 # Local CLI history (machine-specific)
+.cryomodel_history.jsonl
 .crymodel_history.jsonl
+.cryomodel/
+.cryomodel_logs/
+
+# Local scratch
+_tmp_seqc/
 
 # Logs and temp files
 *.log

@@ -49,7 +49,7 @@ templates/
 
 **Usage:**
 ```python
-from crymodel.nucleotide.templates import TemplateLibrary
+from cryomodel.nucleotide.templates import TemplateLibrary
 
 templates = TemplateLibrary(template_dir="templates/")
 ```
@@ -153,7 +153,7 @@ If you have PDB models and want to create density maps:
 
 ```python
 # Example: Convert PDB to density at 3.0 Å resolution
-from crymodel.fitting.foldhunter import pdb_to_density_map
+from cryomodel.fitting.foldhunter import pdb_to_density_map
 import numpy as np
 
 # Define target map parameters
@@ -172,7 +172,7 @@ density = pdb_to_density_map(
 )
 
 # Save
-from crymodel.io.mrc import write_map, MapVolume
+from cryomodel.io.mrc import write_map, MapVolume
 mv = MapVolume(
     data_zyx=density,
     apix=target_apix,

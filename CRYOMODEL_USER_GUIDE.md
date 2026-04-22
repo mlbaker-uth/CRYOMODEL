@@ -17,8 +17,8 @@ Version 0.1.0
 4. [Map Filtering](#map-filtering)
    - [mapfilter](#mapfilter)
 5. [Pathwalking Tools](#pathwalking-tools)
-   - [pathwalk](#pathwalk)
-   - [pathwalk-average](#pathwalk-average)
+   - [pathwalker](#pathwalker)
+   - [pathwalker-average](#pathwalker-average)
 6. [Pore Analysis Tools](#pore-analysis-tools)
    - [pyhole](#pyhole)
    - [pyhole-plot](#pyhole-plot)
@@ -78,7 +78,7 @@ pip install -e ".[ml,pathwalk]"
 
 **Usage**:
 ```bash
-crymodel findligands \
+cryomodel findligands \
   --map <map.mrc> \
   --model <model.pdb> \
   --thresh <threshold> \
@@ -119,7 +119,7 @@ crymodel findligands \
 
 **Example**:
 ```bash
-crymodel findligands \
+cryomodel findligands \
   --map examples/emd_22898.map \
   --model examples/7kjr-no-het.pdb \
   --thresh 0.5 \
@@ -141,7 +141,7 @@ crymodel findligands \
 
 **Usage**:
 ```bash
-crymodel predictligands \
+cryomodel predictligands \
   --ligands-pdb <ligands.pdb> \
   --ligand-map <ligands_map.mrc> \
   --model <model.pdb> \
@@ -167,7 +167,7 @@ crymodel predictligands \
 
 **Example**:
 ```bash
-crymodel predictligands \
+cryomodel predictligands \
   --ligands-pdb outputs/ligands.pdb \
   --ligand-map outputs/ligands_map.mrc \
   --model examples/7kjr-no-het.pdb \
@@ -185,7 +185,7 @@ crymodel predictligands \
 
 **Usage**:
 ```bash
-crymodel validate \
+cryomodel validate \
   --model <model.pdb> \
   --map <map.mrc> \
   [OPTIONS]
@@ -210,7 +210,7 @@ crymodel validate \
 
 **Example**:
 ```bash
-crymodel validate \
+cryomodel validate \
   --model structure.pdb \
   --map full_map.mrc \
   --half1 half1.mrc \
@@ -229,13 +229,13 @@ crymodel validate \
 **Purpose**: Apply common cryo-EM map filters. Takes an input map, a filter type, and options; writes a filtered map with the given output name. Useful for preprocessing (lowpass, normalize), masking (threshold, binary), denoising (median, bilateral, gaussian), or enhancement (laplacian, bandpass).
 
 **Commands**:
-- `crymodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` — apply a filter and write the result
-- `crymodel mapfilter list` — list all available filters and their options
+- `cryomodel mapfilter apply <input.mrc> <output.mrc> --filter <type> [options]` — apply a filter and write the result
+- `cryomodel mapfilter list` — list all available filters and their options
 
 **Usage**:
 ```bash
-crymodel mapfilter apply <input_map> <output_map> --filter <filter_type> [OPTIONS]
-crymodel mapfilter list
+cryomodel mapfilter apply <input_map> <output_map> --filter <filter_type> [OPTIONS]
+cryomodel mapfilter list
 ```
 
 **Arguments**:
@@ -276,31 +276,31 @@ crymodel mapfilter list
 **Examples**:
 ```bash
 # Low-pass filter at 4 Å resolution
-crymodel mapfilter apply map.mrc lowpass_4A.mrc -f lowpass -r 4
+cryomodel mapfilter apply map.mrc lowpass_4A.mrc -f lowpass -r 4
 
 # Gaussian blur (sigma = 2 voxels)
-crymodel mapfilter apply map.mrc blurred.mrc -f gaussian --sigma-vox 2
+cryomodel mapfilter apply map.mrc blurred.mrc -f gaussian --sigma-vox 2
 
 # Threshold: set density below 0.5 to 0
-crymodel mapfilter apply map.mrc masked.mrc -f threshold -t 0.5
+cryomodel mapfilter apply map.mrc masked.mrc -f threshold -t 0.5
 
 # Binary mask (density ≥ 0.3 → 1, else 0)
-crymodel mapfilter apply map.mrc binary.mrc -f binary -t 0.3
+cryomodel mapfilter apply map.mrc binary.mrc -f binary -t 0.3
 
 # Bandpass 3–10 Å with Butterworth order 4
-crymodel mapfilter apply map.mrc band.mrc -f bandpass --low-res 10 --high-res 3 --butterworth-order 4
+cryomodel mapfilter apply map.mrc band.mrc -f bandpass --low-res 10 --high-res 3 --butterworth-order 4
 
 # Laplacian sharpening
-crymodel mapfilter apply map.mrc sharp.mrc -f laplacian-sharpen --sharpen-strength 0.5
+cryomodel mapfilter apply map.mrc sharp.mrc -f laplacian-sharpen --sharpen-strength 0.5
 
 # Median filter for noise reduction
-crymodel mapfilter apply map.mrc denoised.mrc -f median --median-size 2
+cryomodel mapfilter apply map.mrc denoised.mrc -f median --median-size 2
 
 # Normalize to zero mean, unit variance
-crymodel mapfilter apply map.mrc normalized.mrc -f normalize
+cryomodel mapfilter apply map.mrc normalized.mrc -f normalize
 
 # List all filters and options
-crymodel mapfilter list
+cryomodel mapfilter list
 ```
 
 **Output**: A single MRC/CCP4 map with the same grid and origin as the input, containing the filtered density.
@@ -309,70 +309,64 @@ crymodel mapfilter list
 
 ## Pathwalking Tools
 
-### pathwalk
+### pathwalker
 
-**Purpose**: Trace protein backbone through density using TSP-based pathfinding.
+**Purpose**: Trace protein backbone through density using pseudoatoms and a TSP solver (legacy engine). Prefer **`pathwalker2`** for new maps.
+
+**Primary command**: `cryomodel pathwalker` (aliases: `cryomodel pathwalk`).
 
 **Usage**:
 ```bash
-crymodel pathwalk \
+cryomodel pathwalker \
   --map <map.mrc> \
-  --model <model.pdb> \
+  --threshold <float> \
+  --n-residues <int> \
   [OPTIONS]
 ```
 
-**Required Arguments**:
+**Required options**:
 - `--map`: Input density map (.mrc)
-- `--model`: Reference model PDB/mmCIF (for Cα count)
+- `--threshold`: Density threshold for pseudoatom generation
+- `--n-residues`: Number of residues (Cα sites)
 
-**Options**:
-- `--thresh <float>`: Density threshold
-- `--method <str>`: Clustering method: kmeans, spectral, agglomerative, meanshift, gmm, birch (default: kmeans)
-- `--tsp-solver <str>`: TSP solver: ortools or lkh (default: ortools)
-- `--iterations <int>`: Number of optimization iterations (default: 1)
-- `--out-dir <path>`: Output directory (default: "outputs")
-
-**Outputs**:
-- `path_*.pdb`: Pathwalking results for each iteration
+**Common options**:
+- `--pseudoatom-method`: kmeans, sc, ac, ms, gmm, birch (default: kmeans)
+- `--tsp-solver`: ortools or lkh (default: ortools)
+- `--time-limit`: TSP time limit in seconds (default: 30)
+- `--output-pdb`, `--out-dir`: Output paths (defaults: `pathwalker.pdb`, `outputs`)
 
 **Example**:
 ```bash
-crymodel pathwalk \
+cryomodel pathwalker \
   --map density.mrc \
-  --model reference.pdb \
-  --thresh 0.5 \
-  --method kmeans \
-  --tsp-solver ortools \
-  --iterations 3 \
-  --out-dir outputs
+  --threshold 0.05 \
+  --n-residues 200 \
+  --out-dir outputs/pathwalker
 ```
 
 ---
 
-### pathwalk-average
+### pathwalker-average
 
-**Purpose**: Average multiple pathwalking runs and compute probabilities.
+**Purpose**: Average multiple pathwalker PDB outputs (optional probabilistic B-factors).
+
+**Primary command**: `cryomodel pathwalker-average` (alias: `cryomodel pathwalk-average`).
 
 **Usage**:
 ```bash
-crymodel pathwalk-average \
-  --paths <path1.pdb,path2.pdb,...> \
-  --out <output.pdb>
+cryomodel pathwalker-average \
+  --path-files <path1.pdb,path2.pdb,...> \
+  [--probabilistic] \
+  --output-pdb <out.pdb> \
+  --out-dir <dir>
 ```
-
-**Required Arguments**:
-- `--paths`: Comma-separated list of path PDB files
-- `--out`: Output averaged path PDB
-
-**Options**:
-- `--probabilities`: Include probability scores in output
 
 **Example**:
 ```bash
-crymodel pathwalk-average \
-  --paths outputs/path_1.pdb,outputs/path_2.pdb,outputs/path_3.pdb \
-  --out outputs/path_averaged.pdb \
-  --probabilities
+cryomodel pathwalker-average \
+  --path-files outputs/run1.pdb,outputs/run2.pdb \
+  --output-pdb pathwalker_averaged.pdb \
+  --out-dir outputs
 ```
 
 ---
@@ -385,7 +379,7 @@ crymodel pathwalk-average \
 
 **Usage**:
 ```bash
-crymodel pyhole analyze \
+cryomodel pyhole analyze \
   --pdb <structure.pdb> \
   --top <selection> \
   --bottom <selection> \
@@ -426,7 +420,7 @@ crymodel pyhole analyze \
 
 **Example**:
 ```bash
-crymodel pyhole analyze \
+cryomodel pyhole analyze \
   --pdb channel.pdb \
   --top "A:123" \
   --bottom "A:456" \
@@ -444,7 +438,7 @@ crymodel pyhole analyze \
 
 **Usage**:
 ```bash
-crymodel pyhole-plot plot \
+cryomodel pyhole-plot plot \
   <input1,input2,...> \
   [OPTIONS]
 ```
@@ -478,20 +472,20 @@ crymodel pyhole-plot plot \
 **Example**:
 ```bash
 # Single plot
-crymodel pyhole-plot plot outputs/pore_analysis \
+cryomodel pyhole-plot plot outputs/pore_analysis \
   --out fig1C \
   --ylim 0.5,8.0 \
   --species water
 
 # Overlay multiple profiles
-crymodel pyhole-plot plot stateA,stateB \
+cryomodel pyhole-plot plot stateA,stateB \
   --overlay \
   --labels "A,B" \
   --primary-color "black,orange" \
   --out overlay
 
 # Grid layout
-crymodel pyhole-plot plot P1,P2,P3,P4,P5 \
+cryomodel pyhole-plot plot P1,P2,P3,P4,P5 \
   --grid 1x5 \
   --out fig2 \
   --titles "Prot1,Prot2,Prot3,Prot4,Prot5"
@@ -507,7 +501,7 @@ crymodel pyhole-plot plot P1,P2,P3,P4,P5 \
 
 **Usage**:
 ```bash
-crymodel basehunter compare \
+cryomodel basehunter compare \
   --input-file <pairs.txt> \
   --threshold <float> \
   [OPTIONS]
@@ -548,7 +542,7 @@ volume3.mrc volume4.mrc 0.55
 
 **Example**:
 ```bash
-crymodel basehunter compare \
+cryomodel basehunter compare \
   --input-file volume_pairs.txt \
   --threshold 0.5 \
   --out-dir outputs
@@ -560,7 +554,7 @@ crymodel basehunter compare \
 
 **Usage**:
 ```bash
-crymodel dnaaxis extract \
+cryomodel dnaaxis extract \
   --map <map.mrc> \
   --threshold <threshold> \
   [OPTIONS]
@@ -603,7 +597,7 @@ crymodel dnaaxis extract \
 
 **Example**:
 ```bash
-crymodel dnaaxis extract \
+cryomodel dnaaxis extract \
   --map 1BNA.mrc \
   --threshold 0.26 \
   --endpoints-pdb endpoints.pdb \
@@ -618,7 +612,7 @@ crymodel dnaaxis extract \
 
 **Usage**:
 ```bash
-crymodel dnabuild build \
+cryomodel dnabuild build \
   --map <map.mrc> \
   --n-bp <num_basepairs> \
   --threshold <threshold> \
@@ -646,7 +640,7 @@ TGCAT...
 
 **Example**:
 ```bash
-crymodel dnabuild build \
+cryomodel dnabuild build \
   --map dna_only.mrc \
   --n-bp 12 \
   --threshold 0.45 \
@@ -659,7 +653,7 @@ crymodel dnabuild build \
 
 **Usage**:
 ```bash
-crymodel dnabuild build-2bp \
+cryomodel dnabuild build-2bp \
   --centerline-pdb <centerline.pdb> \
   --template-2bp-pdb <2AT-template.pdb> \
   --out-pdb <model.pdb> \
@@ -685,7 +679,7 @@ crymodel dnabuild build-2bp \
 
 **Example**:
 ```bash
-crymodel dnabuild build-2bp \
+cryomodel dnabuild build-2bp \
   --centerline-pdb 906_centerline_v7.pdb \
   --template-2bp-pdb data/DNA-TEMPLATES/2AT-template.pdb \
   --out-pdb 906_polyAT_2bp_model.pdb \
@@ -703,7 +697,7 @@ crymodel dnabuild build-2bp \
 
 **Usage**:
 ```bash
-crymodel pdbcom \
+cryomodel pdbcom \
   --model <model.pdb> \
   --domains <domains.json> \
   [OPTIONS]
@@ -734,7 +728,7 @@ crymodel pdbcom \
 
 **Example**:
 ```bash
-crymodel pdbcom \
+cryomodel pdbcom \
   --model structure.pdb \
   --domains domains.json \
   --mass-weighted \
@@ -750,7 +744,7 @@ crymodel pdbcom \
 
 **Usage**:
 ```bash
-crymodel pdbdomain \
+cryomodel pdbdomain \
   --model <model.pdb> \
   [OPTIONS]
 ```
@@ -779,7 +773,7 @@ crymodel pdbdomain \
 
 **Example**:
 ```bash
-crymodel pdbdomain \
+cryomodel pdbdomain \
   --model structure.pdb \
   --chain A \
   --merge-distance 22 \
@@ -797,7 +791,7 @@ crymodel pdbdomain \
 
 **Usage**:
 ```bash
-crymodel fitcompare compare \
+cryomodel fitcompare compare \
   --model-a <modelA.pdb> \
   --model-b <modelB.pdb> \
   [OPTIONS]
@@ -818,7 +812,7 @@ crymodel fitcompare compare \
 
 **Example**:
 ```bash
-crymodel fitcompare compare \
+cryomodel fitcompare compare \
   --model-a stateA.pdb \
   --model-b stateB.pdb \
   --anchors "A:100-160,B:20-45" \
@@ -835,7 +829,7 @@ crymodel fitcompare compare \
 
 **Usage**:
 ```bash
-crymodel fitprep check \
+cryomodel fitprep check \
   --model <model.pdb> \
   --map <map.mrc> \
   [OPTIONS]
@@ -858,7 +852,7 @@ crymodel fitprep check \
 
 **Example**:
 ```bash
-crymodel fitprep check \
+cryomodel fitprep check \
   --model structure.pdb \
   --map full_map.mrc \
   --half1 half1.mrc \
@@ -877,7 +871,7 @@ crymodel fitprep check \
 
 **Usage**:
 ```bash
-crymodel loopcloud generate \
+cryomodel loopcloud generate \
   --model <model.pdb> \
   --anchors <spec> \
   --sequence <seq> \
@@ -904,7 +898,7 @@ crymodel loopcloud generate \
 
 **Example**:
 ```bash
-crymodel loopcloud generate \
+cryomodel loopcloud generate \
   --model structure.pdb \
   --anchors "chainA:res123 -> chainA:res140" \
   --sequence "GAVLIS" \
@@ -925,7 +919,7 @@ crymodel loopcloud generate \
 
 **Usage**:
 ```bash
-crymodel extract-features \
+cryomodel extract-features \
   --pdb-dir <dir> \
   --output <features.csv> \
   [OPTIONS]
@@ -942,7 +936,7 @@ crymodel extract-features \
 
 **Example**:
 ```bash
-crymodel extract-features \
+cryomodel extract-features \
   --pdb-dir TRAINING/PDBs \
   --output TRAINING/all_features.csv \
   --training-set TRAINING/training_set.csv
@@ -956,7 +950,7 @@ crymodel extract-features \
 
 **Usage**:
 ```bash
-crymodel train-ml \
+cryomodel train-ml \
   --features <features.csv> \
   --output <model_dir> \
   [OPTIONS]
@@ -975,7 +969,7 @@ crymodel train-ml \
 
 **Example**:
 ```bash
-crymodel train-ml \
+cryomodel train-ml \
   --features TRAINING/all_features.csv \
   --output TRAINING/models/single \
   --epochs 100 \
@@ -990,7 +984,7 @@ crymodel train-ml \
 
 **Usage**:
 ```bash
-crymodel train-ensemble \
+cryomodel train-ensemble \
   --features <features.csv> \
   --output <ensemble_dir> \
   --n-models <int> \
@@ -1011,7 +1005,7 @@ crymodel train-ensemble \
 
 **Example**:
 ```bash
-crymodel train-ensemble \
+cryomodel train-ensemble \
   --features TRAINING/all_features.csv \
   --output TRAINING/models/ensemble \
   --n-models 5 \
@@ -1029,12 +1023,12 @@ crymodel train-ensemble \
 
 **Usage**:
 ```bash
-crymodel version
+cryomodel version
 ```
 
 **Example**:
 ```bash
-$ crymodel version
+$ cryomodel version
 CryoModel version 0.1.0
 ```
 
@@ -1095,7 +1089,7 @@ Many commands share common options:
 
 ### Getting Help
 
-- Check command help: `crymodel <command> --help`
+- Check command help: `cryomodel <command> --help`
 - Review output JSON files for detailed error messages
 - Verify input file formats and paths
 

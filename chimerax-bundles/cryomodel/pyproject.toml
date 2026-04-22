@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools", "wheel", "ChimeraX-BundleBuilder"]
+build-backend = "chimerax.bundle_builder.cx_pep517"
+
+[project]
+name = "cryomodel"
+version = "0.1.3"
+description = "Unified cryo-EM modeling toolkit (ChimeraX bundle)"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Matthew L. Baker", email = "matthew.baker@uth.tmc.edu" }]
+requires-python = ">=3.9"
+dynamic = ["classifiers"]
+
+[project.urls]
+Homepage = "https://github.com/mlbaker-uth/CRYOMODEL"
+
+[tool.chimerax]
+module-name-override = "cryomodel"
+pure = true
+min-session-version = 1
+max-session-version = 1
+custom-init = false
+categories = ["Volume Data", "CryoModel"]
+
+[tool.chimerax.command.cryomodel_findligands]
+category = "Volume Data"
+description = "Assign unmodeled density with CryoModel"
+
+[tool.chimerax.command.cryomodel_pdbdomain]
+category = "Volume Data"
+description = "Domain identification and COM analysis"
+
+[tool.chimerax.command.cryomodel_manifest]
+category = "Volume Data"
+description = "Write CryoModel workflow manifest JSON for open models (CryoModel workflow UI)"
+
+[tool.chimerax.tool."CryoModel Domain Tool"]
+category = "CryoModel"
+description = "Domain identification and COM analysis"
+
+[tool.chimerax.tool."CryoModel Manifest"]
+category = "CryoModel"
+description = "Write manifest JSON and log currently open models/maps"
+
+[tool.chimerax.tool."BaseHunter Interactive"]
+category = "CryoModel"
+description = "Interactive BaseHunter scaffold for DNA base-pair support"

@@ -1,6 +1,6 @@
 # FitCheck Port Summary
 
-The FitCheck (fitcheck.py) tool has been successfully ported into the crymodel framework as a resolution-aware cryoEM model validation tool.
+The FitCheck (fitcheck.py) tool has been successfully ported into the cryomodel framework as a resolution-aware cryoEM model validation tool.
 
 ## Overview
 
@@ -8,13 +8,13 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 
 ## Location
 
-- **Core modules**: `crymodel/validation/`
-- **CLI command**: `crymodel validate`
+- **Core modules**: `cryomodel/validation/`
+- **CLI command**: `cryomodel validate`
 
 ## Implemented Features
 
 ### 1. Ringer-Lite (χ1-scan side-chain density score)
-**Module**: `crymodel/validation/ringer_lite.py`
+**Module**: `cryomodel/validation/ringer_lite.py`
 
 - Scans χ1 torsion angle in 10° steps (-180° to 180°)
 - Rotates side-chain atoms virtually (no coordinate editing)
@@ -26,7 +26,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
   - Local resolution penalty for low-resolution regions
 
 ### 2. Q-Lite (Atom resolvability index)
-**Module**: `crymodel/validation/q_lite.py`
+**Module**: `cryomodel/validation/q_lite.py`
 
 - Samples radial density profile around each atom (0-2.0 Å)
 - Constructs expected profile from local resolution
@@ -35,7 +35,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 - Amplitude ratio (best fit scale)
 
 ### 3. Cα-Tube (Backbone trace continuity)
-**Module**: `crymodel/validation/ca_tube.py`
+**Module**: `cryomodel/validation/ca_tube.py`
 
 - Builds spline through Cα positions
 - Samples density in cylindrical tube (radius ~1.25 Å) along backbone
@@ -43,7 +43,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 - Half-map stability metric
 
 ### 4. Local CC Variants
-**Module**: `crymodel/validation/local_cc.py`
+**Module**: `cryomodel/validation/local_cc.py`
 
 - **CC_mask**: 2 Å mask around atoms
 - **CC_box**: Fixed 4 Å cube
@@ -52,7 +52,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 - Delta CC: full vs best half-map
 
 ### 5. Geometry-vs-Resolution Priors
-**Module**: `crymodel/validation/geometry_priors.py`
+**Module**: `cryomodel/validation/geometry_priors.py`
 
 - Ramachandran probability (simplified)
 - Clashscore Z-score
@@ -63,7 +63,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
   - Cβ deviations
 
 ### 6. Resolution-Aware Priors
-**Module**: `crymodel/validation/resolution_priors.py`
+**Module**: `cryomodel/validation/resolution_priors.py`
 
 - Bins residues by local resolution (0.2 Å bins)
 - Fits robust statistics (median + MAD) per bin
@@ -72,7 +72,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 - Flags too-good geometry as potential overfit
 
 ### 7. Feature Extractor
-**Module**: `crymodel/validation/feature_extractor.py`
+**Module**: `cryomodel/validation/feature_extractor.py`
 
 - Orchestrates all feature extraction
 - Processes structure residue-by-residue
@@ -84,7 +84,7 @@ FitCheck combines and re-implements "lite" versions of common cryoEM validation 
 ### Basic Validation
 
 ```bash
-crymodel validate \
+cryomodel validate \
   --model structure.pdb \
   --map full_map.mrc \
   --half1 half1.mrc \
@@ -96,7 +96,7 @@ crymodel validate \
 ### Fit Priors from Data
 
 ```bash
-crymodel validate \
+cryomodel validate \
   --model structure.pdb \
   --map full_map.mrc \
   --half1 half1.mrc \
@@ -108,7 +108,7 @@ crymodel validate \
 ### Use Pre-computed Priors
 
 ```bash
-crymodel validate \
+cryomodel validate \
   --model structure.pdb \
   --map full_map.mrc \
   --half1 half1.mrc \

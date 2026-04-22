@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BundleInfo name="CryoModel" version="0.1.0" package="chimerax.cryomodel" minSessionVersion="1" maxSessionVersion="1">
+  <Author name="Matthew L. Baker" />
+  <Email>matthew.baker@uth.tmc.edu</Email>
+  <URL>https://github.com/mlbaker-uth/CRYOMODEL</URL>
+  <Synopsis>Unified cryo-EM modeling toolkit</Synopsis>
+  <Description>Unified cryo-EM modeling tools: finders, pathwalker, pyHole.</Description>
+  <Categories>
+    <Category name="Volume Data"/>
+    <Category name="Structural Analysis"/>
+  </Categories>
+  <SrcDir>src</SrcDir>
+  <Commands>
+    <Command name="cryomodel_findligands" synopsis="Assign unmodeled density with CryoModel" />
+    <Command name="cryomodel_pdbdomain" synopsis="Domain identification and COM analysis" />
+  </Commands>
+  <Classifiers>
+    <!-- Bundle line is auto-generated; use fix_wheel_metadata.py after build if toolshed rejects -->
+    <ChimeraXClassifier>Command :: cryomodel findligands :: Volume Data :: Assign unmodeled density with CryoModel</ChimeraXClassifier>
+    <ChimeraXClassifier>Command :: cryomodel pdbdomain :: Volume Data :: Domain identification and COM analysis</ChimeraXClassifier>
+    <ChimeraXClassifier>Tool :: CryoModel Domain Tool :: Structural Analysis :: Domain identification and COM analysis</ChimeraXClassifier>
+  </Classifiers>
+</BundleInfo>

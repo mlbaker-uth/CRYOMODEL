@@ -135,7 +135,7 @@ The initial implementation will focus on Step 1, with CLI scaffolding for Steps 
 ## 3. Proposed Package Layout
 
 ```
-crymodel/pathwalker2/
+cryomodel/pathwalker2/
   __init__.py
   map_prep.py           # smoothing, normalization, thresholding
   skeleton.py           # skeletonization, ridgeness, gradient
@@ -149,8 +149,8 @@ crymodel/pathwalker2/
   threading.py          # HMM/Viterbi sequence threading (Step 2)
   io.py                 # PDB/CIF/JSON helpers
 
-crymodel/cli/pathwalker2.py          # Step 1 command
-crymodel/cli/pathwalker2_thread.py   # Step 2 command (future)
+cryomodel/cli/pathwalker2.py          # Step 1 command
+cryomodel/cli/pathwalker2_thread.py   # Step 2 command (future)
 ```
 
 ---
@@ -159,7 +159,7 @@ crymodel/cli/pathwalker2_thread.py   # Step 2 command (future)
 
 ### 4.1 Automatic Trace Discovery
 ```bash
-crymodel pathwalker2 \
+cryomodel pathwalker2 \
   --map map.mrc \
   --thresh 0.05 \
   --residues 840 \
@@ -187,7 +187,7 @@ Key flags (initial implementation subset):
 
 ### 4.2 Threading CLI (Phase 2)
 ```bash
-crymodel pathwalker2-thread \
+cryomodel pathwalker2-thread \
   --fragments ./pw2_job/pathwalker2_fragments.pdb \
   --metadata ./pw2_job/pathwalker2_meta.json \
   --sequence subunitA.fasta \

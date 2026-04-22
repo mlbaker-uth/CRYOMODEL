@@ -215,6 +215,13 @@
   <div id="log"></div>
 
   <script>
+    const _qs = new URLSearchParams(window.location.search);
+    const _apiParam = _qs.get("apiBase");
+    if (_apiParam) {
+      const el = document.getElementById("apiBase");
+      if (el) el.value = _apiParam;
+    }
+
     const imgCanvas = document.getElementById("imgCanvas");
     const overlayCanvas = document.getElementById("overlayCanvas");
     const imgCtx = imgCanvas.getContext("2d");
