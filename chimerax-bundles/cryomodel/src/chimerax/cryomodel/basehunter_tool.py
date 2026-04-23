@@ -27,7 +27,26 @@ from Qt.QtWidgets import (
 
 from cryomodel.nucleotide.interactive_pairs import Marker3D, PairResult, PairState
 from cryomodel.nucleotide.template_registry import validate_template_pack
-from cryomodel.resources import basehunter_template_pack_dir
+
+
+def _basehunter_template_pack_dir() -> Path:
+    """Bundled ``data/...`` next to the wheel, or ``src/data/...`` when this file lives under ``src/chimerax/cryomodel/``."""
+    here = Path(__file__).resolve().parent
+    for bundled in (
+        here / "data" / "basehunter" / "NEW-DNA-TEMPLATES",
+        here.parent.parent / "data" / "basehunter" / "NEW-DNA-TEMPLATES",
+    ):
+        if bundled.is_dir():
+            return bundled
+    try:
+        import cryomodel  # noqa: PLC0415
+
+        alt = Path(cryomodel.__file__).resolve().parent / "data" / "basehunter" / "NEW-DNA-TEMPLATES"
+        if alt.is_dir():
+            return alt
+    except ImportError:
+        pass
+    return here / "data" / "basehunter" / "NEW-DNA-TEMPLATES"
 
 
 def _disk_path_for_model(m) -> Optional[str]:
@@ -116,7 +135,7 @@ class BaseHunterInteractiveTool(ToolInstance):
 
         path_row = QHBoxLayout()
         self.template_dir = QLineEdit()
-        self.template_dir.setText(str(basehunter_template_pack_dir()))
+        self.template_dir.setText(str(_basehunter_template_pack_dir()))
         browse = QPushButton("Browse")
         browse.clicked.connect(self._browse_template_dir)
         path_row.addWidget(self.template_dir)

@@ -1,0 +1,2 @@
+# Ensure BaseHunter template maps/PDBs ship in the wheel (ChimeraX toolshed install).
+graft src/data

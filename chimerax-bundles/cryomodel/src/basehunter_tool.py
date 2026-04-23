@@ -13,8 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from cryomodel.resources import basehunter_template_pack_dir
-
 from chimerax.core.tools import ToolInstance
 from chimerax.ui import MainToolWindow
 from Qt.QtCore import QTimer
@@ -34,6 +32,23 @@ from Qt.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
+
+
+def _basehunter_template_pack_dir() -> Path:
+    """Bundled DNA/BaseHunter templates next to this module (ChimeraX wheel), or editable ``cryomodel``."""
+    here = Path(__file__).resolve().parent
+    bundled = here / "data" / "basehunter" / "NEW-DNA-TEMPLATES"
+    if bundled.is_dir():
+        return bundled
+    try:
+        import cryomodel  # noqa: PLC0415
+
+        alt = Path(cryomodel.__file__).resolve().parent / "data" / "basehunter" / "NEW-DNA-TEMPLATES"
+        if alt.is_dir():
+            return alt
+    except ImportError:
+        pass
+    return bundled
 
 
 @dataclass
@@ -188,7 +203,7 @@ class BaseHunterInteractiveTool(ToolInstance):
         tmpl_layout = QVBoxLayout()
 
         path_row = QHBoxLayout()
-        self.template_dir = QLineEdit(str(basehunter_template_pack_dir()))
+        self.template_dir = QLineEdit(str(_basehunter_template_pack_dir()))
         path_row.addWidget(self.template_dir)
         browse = QPushButton("Browse")
         browse.clicked.connect(self._browse_templates)

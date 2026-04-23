@@ -40,6 +40,7 @@ outputs/
 outputs_test_*/
 *.mrc
 !cryomodel/data/basehunter/**/*.mrc
+!chimerax-bundles/cryomodel/src/data/basehunter/**/*.mrc
 *.map
 *.npy
 

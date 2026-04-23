@@ -1,0 +1,26 @@
+template-All4.mrc: averaged density map of all 4 nucleotides at 3Ang resolution (64x64x64, 1Ang/pix, ~3.0 for threshold)
+template-SP-backbone.mrc: averaged density map of just sugar-phosphate backbone atoms at 3Ang resolution (64x64x64, 1Ang/pix, ~3.0 for threshold)
+template-SP-backbone.pdb: representative model of just the sugar-phosphate backbone atoms in PDB format
+
+
+PURINES
+-----------
+templateBP-purine-3.mrc: averaged density map of the purine (A/G) bases only at 3Ang resolution (64x64x64, 1Ang/pix, ~2.0 for threshold)
+template-purine-3.mrc: averaged density map of the purine (A/G) nucleotide at 3Ang resolution (64x64x64, 1Ang/pix, ~2.0 for threshold)
+templateBP-A2.pdb: aligned model of A in PDB format
+templateBP-G2.pdb: aligned model of G in PDB format
+templateBP-A2-base.pdb: aligned model of A (base only) in PDB format
+templateBP-G2-base.pdb: aligned model of G (base only) in PDB format
+referencePDB-purine.pdb: purine model in PDB format
+
+
+PYRIMIDINES
+-----------
+templateBP-pyrimidine-3.mrc: averaged density map of the pyrimidine (C/T) bases only at 3Ang resolution (64x64x64, 1Ang/pix, ~2.0 for threshold)
+template-pyrimidine-3.mrc: averaged density map of the pyrimidine (C/T) nucleotide at 3Ang resolution (64x64x64, 1Ang/pix, ~2.0 for threshold)
+templateBP-C2.pdb: aligned model of C in PDB format
+templateBP-T2.pdb: aligned model of T in PDB format
+templateBP-C2-base.pdb: aligned model of C (base-only) in PDB format
+templateBP-T2-base.pdb: aligned model of T (base-only) in PDB format
+referencePDB-pyrimidine.pdb: pyrimidine model in PDB format 
+

@@ -8,6 +8,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -411,13 +412,61 @@ def _manager_ui_url(
     return f"file://{html}?{q}"
 
 
-def _open_browser(url: str) -> None:
+def _open_browser(url: str, browser_cmd: Optional[str] = None) -> bool:
+    """
+    Best-effort browser launch.
+
+    On some Linux systems, ``xdg-open file://...?...`` may route to ``gio`` and print
+    ``Operation not supported`` for file-URLs with query parameters even though the file exists.
+    Use a resilient sequence and suppress noisy launcher stderr.
+    """
+    # Explicit browser command override (e.g., "firefox", "google-chrome").
+    if browser_cmd:
+        parts = [p for p in str(browser_cmd).strip().split() if p]
+        if parts:
+            try:
+                subprocess.Popen(parts + [url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except Exception:
+                pass
+
+    # First try Python's browser dispatch.
+    try:
+        if webbrowser.open(url, new=2):
+            return True
+    except Exception:
+        pass
+
+    # OS-specific launchers.
     if sys.platform == "darwin":
-        subprocess.Popen(["open", url])
-    elif sys.platform.startswith("linux"):
-        subprocess.Popen(["xdg-open", url])
-    elif os.name == "nt":
-        os.startfile(url)  # type: ignore[attr-defined]
+        try:
+            subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except Exception:
+            return False
+
+    if sys.platform.startswith("linux"):
+        # Try common launchers; swallow stderr noise from gio/xdg edge cases.
+        for cmd in ("xdg-open", "gio"):
+            exe = shutil.which(cmd)
+            if not exe:
+                continue
+            args = [exe, "open", url] if cmd == "gio" else [exe, url]
+            try:
+                subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except Exception:
+                continue
+        return False
+
+    if os.name == "nt":
+        try:
+            os.startfile(url)  # type: ignore[attr-defined]
+            return True
+        except Exception:
+            return False
+
+    return False
 
 
 def _start_server(project_root: Path, host: str, port: int) -> int:
@@ -470,6 +519,7 @@ def _open_project_impl(
     port: Optional[int],
     open_ui: bool,
     start_server: Optional[bool],
+    browser_cmd: Optional[str] = None,
 ) -> Dict[str, Any]:
     project_root = _resolve_project_for_open(project)
     if not project_root.is_dir():
@@ -527,7 +577,7 @@ def _open_project_impl(
         chimerax_app=str(project_record.get("chimerax_app") or ""),
     )
     if open_ui:
-        _open_browser(workflow_url)
+        _open_browser(workflow_url, browser_cmd=browser_cmd)
     return {
         "project_root": str(project_root),
         "api_url": f"http://{effective_host}:{effective_port}",
@@ -544,6 +594,11 @@ def _manager(
     ui: bool = typer.Option(True, "--ui/--no-ui", help="Open startup manager window when no subcommand is given."),
     host: str = typer.Option(DEFAULT_MANAGER_HOST, "--host", help="Manager API host for startup window."),
     port: int = typer.Option(DEFAULT_MANAGER_PORT, "--port", help="Manager API port for startup window."),
+    browser: Optional[str] = typer.Option(
+        None,
+        "--browser",
+        help="Browser command override (e.g. 'firefox', 'google-chrome', '/usr/bin/open -a Safari').",
+    ),
 ) -> None:
     if ctx.invoked_subcommand is not None:
         return
@@ -566,8 +621,12 @@ def _manager(
             default_api_host=DEFAULT_HOST,
             default_api_port=DEFAULT_PORT,
         )
-        _open_browser(url)
-        typer.echo(f"Opened manager UI: {url}")
+        opened = _open_browser(url, browser_cmd=browser)
+        if opened:
+            typer.echo(f"Opened manager UI: {url}")
+        else:
+            typer.echo(f"Manager UI URL: {url}")
+            typer.echo("Could not auto-open browser on this system. Copy URL into a browser manually.", err=True)
         raise typer.Exit(0)
     typer.echo("Use `cryomodel manager --ui` to open startup window, or run a manager subcommand.")
 
@@ -661,6 +720,11 @@ def open_project(
     host: Optional[str] = typer.Option(None, "--host", help="Workflow API host (overrides project setting)"),
     port: Optional[int] = typer.Option(None, "--port", help="Workflow API port (overrides project setting)"),
     open_ui: bool = typer.Option(True, "--open-ui/--no-open-ui", help="Open workflow HTML in browser"),
+    browser: Optional[str] = typer.Option(
+        None,
+        "--browser",
+        help="Browser command override (e.g. 'firefox', 'google-chrome').",
+    ),
     start_server: Optional[bool] = typer.Option(
         None,
         "--start-server/--no-start-server",
@@ -675,6 +739,7 @@ def open_project(
             port=port,
             open_ui=open_ui,
             start_server=start_server,
+            browser_cmd=browser,
         )
     except ValueError as e:
         raise typer.BadParameter(str(e))
