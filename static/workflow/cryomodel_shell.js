@@ -4,6 +4,7 @@
 (function () {
   const WORKFLOW_ENV_KEY = "cryomodel.workflow.env.v1";
   const MANAGER_API_KEY = "cryomodel.managerApiBase";
+  const THEME_KEY = "cryomodel.ui.theme";
 
   const state = { homeDir: "" };
 
@@ -36,6 +37,24 @@
     try {
       localStorage.setItem(MANAGER_API_KEY, String(s || "").replace(/\/$/, ""));
     } catch (e) {}
+  }
+
+  function preferredTheme() {
+    try {
+      const saved = (localStorage.getItem(THEME_KEY) || "").trim();
+      if (saved === "light" || saved === "dark") return saved;
+    } catch (e) {}
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function applyTheme(theme) {
+    const t = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+    try {
+      localStorage.setItem(THEME_KEY, t);
+    } catch (e) {}
+    const btn = document.getElementById("themeToggle");
+    if (btn) btn.textContent = t === "dark" ? "☀ Light mode" : "🌙 Dark mode";
   }
 
   function persistTopbarFields() {
@@ -219,6 +238,7 @@
   }
 
   function wire() {
+    applyTheme(preferredTheme());
     initWorkflowEnvFromStorageAndUrl();
     hydrateFromManagerLastProjectIfNeeded().catch(() => {});
     fetchHomeDirForManager().catch(() => {});
@@ -238,6 +258,13 @@
     document.getElementById("legacyWorkflowBtn").addEventListener("click", () => {
       window.location.href = legacyWorkflowUrl();
     });
+    const themeBtn = document.getElementById("themeToggle");
+    if (themeBtn) {
+      themeBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "light";
+        applyTheme(cur === "dark" ? "light" : "dark");
+      });
+    }
   }
 
   if (document.readyState === "loading") {

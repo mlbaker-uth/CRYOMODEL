@@ -6,6 +6,7 @@
   const DEFAULT_API_PORT = Number(q.get("default_api_port") || 8010);
   const DEFAULT_API_PORT_TEXT = String(Number.isFinite(DEFAULT_API_PORT) ? DEFAULT_API_PORT : 8010);
   const HOME_DIR = q.get("home_dir") || "~";
+  const THEME_KEY = "cryomodel.ui.theme";
   let projects = [];
   let selected = null;
   let lastKnownLastProject = null;
@@ -40,6 +41,20 @@
   function parsePortOrDefault(raw) {
     const n = Number.parseInt(String(raw || "").trim(), 10);
     return Number.isFinite(n) && n > 0 ? n : DEFAULT_API_PORT;
+  }
+
+  function preferredTheme() {
+    const saved = (localStorage.getItem(THEME_KEY) || "").trim();
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function applyTheme(theme) {
+    const t = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem(THEME_KEY, t);
+    const b = el("themeToggleBtn");
+    if (b) b.textContent = t === "dark" ? "☀ Light mode" : "🌙 Dark mode";
   }
 
   function applyForm(p) {
@@ -213,6 +228,10 @@
     applyForm(null);
     renderProjects(lastKnownLastProject);
   };
+  el("themeToggleBtn").onclick = () => {
+    const cur = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(cur === "dark" ? "light" : "dark");
+  };
   el("openBtn").onclick = () => {
     const root = prompt("Enter existing project directory path:");
     if (root) {
@@ -323,6 +342,7 @@
     }
   };
 
+  applyTheme(preferredTheme());
   refresh().catch((e) => setStatus(String(e), true));
   el("apiHost").placeholder = DEFAULT_API_HOST;
   el("apiPort").placeholder = DEFAULT_API_PORT_TEXT;
