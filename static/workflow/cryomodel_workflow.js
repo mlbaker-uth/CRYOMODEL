@@ -91,6 +91,11 @@
     if (tag === "DNA") return "tag-dna";
     if (tag === "Production") return "tag-prod";
     if (tag === "Experimental") return "tag-exp";
+    if (tag === "Testing") return "tag-testing";
+    if (tag === "Model") return "tag-model";
+    if (tag === "Map") return "tag-map";
+    if (tag === "Symmetry") return "tag-symmetry";
+    if (tag === "Bridge") return "tag-bridge";
     return "tag-util";
   }
 

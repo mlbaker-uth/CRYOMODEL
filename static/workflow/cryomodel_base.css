@@ -18,6 +18,21 @@
   --error-soft: #feeceb;
   --utility: #7254d6;
   --utility-soft: #f0ebff;
+  --testing: #7d4bc2;
+  --testing-soft: #f2eaff;
+  --testing-border: #dac8f6;
+  --model: #4b63d6;
+  --model-soft: #eaf0ff;
+  --model-border: #cbd9ff;
+  --map: #2687b0;
+  --map-soft: #e8f7ff;
+  --map-border: #c7e7f4;
+  --symmetry: #1f9f8f;
+  --symmetry-soft: #e6fbf6;
+  --symmetry-border: #bfeee2;
+  --bridge: #c36c2e;
+  --bridge-soft: #fff0e5;
+  --bridge-border: #f3d3ba;
   --dna: #246aa5;
   --dna-soft: #eef7ff;
   --dna-border: #d8eaf9;
@@ -56,6 +71,21 @@
   --error-soft: #351a1a;
   --utility: #a78bfa;
   --utility-soft: #241d3f;
+  --testing: #c9a9ff;
+  --testing-soft: #2d2145;
+  --testing-border: #5a3f8f;
+  --model: #a8b8ff;
+  --model-soft: #222a4c;
+  --model-border: #49589a;
+  --map: #9adfff;
+  --map-soft: #1c3650;
+  --map-border: #3f7092;
+  --symmetry: #88e5d5;
+  --symmetry-soft: #193a35;
+  --symmetry-border: #3e776f;
+  --bridge: #f0bf95;
+  --bridge-soft: #3b2a20;
+  --bridge-border: #7f5f45;
   --dna: #95c8ff;
   --dna-soft: #1b2c4a;
   --dna-border: #395784;
@@ -242,6 +272,11 @@ body { min-height: 100vh; }
 .tag-util { background: var(--utility-soft); color: var(--utility); border-color: #dfd6ff; }
 .tag-prod { background: var(--success-soft); color: var(--success); border-color: #d0ebda; }
 .tag-exp { background: var(--warning-soft); color: var(--warning); border-color: #f2dfb2; }
+.tag-testing { background: var(--testing-soft); color: var(--testing); border-color: var(--testing-border); }
+.tag-model { background: var(--model-soft); color: var(--model); border-color: var(--model-border); }
+.tag-map { background: var(--map-soft); color: var(--map); border-color: var(--map-border); }
+.tag-symmetry { background: var(--symmetry-soft); color: var(--symmetry); border-color: var(--symmetry-border); }
+.tag-bridge { background: var(--bridge-soft); color: var(--bridge); border-color: var(--bridge-border); }
 .workspace-toolbar {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   margin-bottom: 14px;
