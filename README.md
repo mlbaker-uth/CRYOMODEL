@@ -76,6 +76,8 @@ python -m pip install -U pip
 pip install -e .
 ```
 
+`cryomodel manager` and `cryomodel manager serve` need the API stack (`fastapi`, `uvicorn`), which is included in the default install above.
+
 ### macOS
 
 ```bash
@@ -204,6 +206,15 @@ devel install /absolute/path/to/CRYOMODEL/chimerax-bundles/cryomodel
 ### `pip` installs to wrong Python
 
 Use:
+
+```bash
+python -m pip install -U pip
+python -m pip install -e .
+```
+
+### `cryomodel manager serve` says `pip install uvicorn fastapi`
+
+Install (or repair) dependencies in the active environment:
 
 ```bash
 python -m pip install -U pip

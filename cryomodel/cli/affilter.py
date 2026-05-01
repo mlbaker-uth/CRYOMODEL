@@ -35,6 +35,7 @@ def filter(
     Removes low pLDDT regions, extended loops, and low-connectivity artifacts.
     Identifies domains using clustering analysis.
     """
+    out_dir = out_dir.expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     
     typer.echo(f"Filtering AlphaFold model: {input_pdb}")
@@ -59,8 +60,12 @@ def filter(
         n_clusters=n_clusters,
     )
     
-    # Write filtered PDB
+    # Write filtered PDB.
+    # - If --output is a bare filename, place it under --out-dir.
+    # - If --output includes a path (relative or absolute), honor that path.
+    output_pdb = output_pdb.expanduser()
     output_path = out_dir / output_pdb.name if output_pdb.parent == Path(".") else output_pdb
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     filtered_model.structure.write_pdb(str(output_path))
     typer.echo(f"\nFiltered model written to: {output_path}")
     

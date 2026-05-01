@@ -4,6 +4,7 @@
   const DEFAULT_PROJECT_ROOT = q.get("default_project_root") || "";
   const DEFAULT_API_HOST = q.get("default_api_host") || "127.0.0.1";
   const DEFAULT_API_PORT = Number(q.get("default_api_port") || 8010);
+  const DEFAULT_API_PORT_TEXT = String(Number.isFinite(DEFAULT_API_PORT) ? DEFAULT_API_PORT : 8010);
   const HOME_DIR = q.get("home_dir") || "~";
   let projects = [];
   let selected = null;
@@ -27,12 +28,26 @@
     return copy;
   }
 
+  function firstNonBlank(...values) {
+    for (const v of values) {
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (s) return s;
+    }
+    return "";
+  }
+
+  function parsePortOrDefault(raw) {
+    const n = Number.parseInt(String(raw || "").trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_API_PORT;
+  }
+
   function applyForm(p) {
     selected = p || null;
     el("name").value = p?.name || "";
     el("projectRoot").value = p?.project_root || DEFAULT_PROJECT_ROOT;
-    el("apiHost").value = p?.api_host || DEFAULT_API_HOST;
-    el("apiPort").value = p?.api_port || DEFAULT_API_PORT;
+    el("apiHost").value = firstNonBlank(p?.api_host, DEFAULT_API_HOST);
+    el("apiPort").value = firstNonBlank(p?.api_port, DEFAULT_API_PORT_TEXT);
     el("chimeraxApp").value = p?.chimerax_app || "ChimeraX";
     el("manifestPath").value = p?.manifest_path || "";
     el("description").value = p?.description || "";
@@ -132,12 +147,13 @@
   }
 
   function formPayload() {
+    const portText = String(el("apiPort").value || "").trim();
     return {
       project_root: el("projectRoot").value.trim(),
       name: el("name").value.trim() || null,
       description: el("description").value.trim() || "",
-      api_host: el("apiHost").value.trim() || DEFAULT_API_HOST,
-      api_port: Number(el("apiPort").value || DEFAULT_API_PORT),
+      api_host: firstNonBlank(el("apiHost").value, DEFAULT_API_HOST),
+      api_port: parsePortOrDefault(portText),
       chimerax_app: el("chimeraxApp").value.trim() || "ChimeraX",
       manifest_path: el("manifestPath").value.trim() || "",
       auto_load_last: el("autoLoadLast").checked,
@@ -308,6 +324,9 @@
   };
 
   refresh().catch((e) => setStatus(String(e), true));
+  el("apiHost").placeholder = DEFAULT_API_HOST;
+  el("apiPort").placeholder = DEFAULT_API_PORT_TEXT;
+  setStatus(`Manager API: ${API} · default workflow API ${DEFAULT_API_HOST}:${DEFAULT_API_PORT_TEXT}`);
   if (!selected) {
     renderProjectRootHint(false);
     updateManifestControls();

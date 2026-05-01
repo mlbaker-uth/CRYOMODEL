@@ -124,6 +124,7 @@ def analyze(
     outprefix = Path(out_prefix)
     if outprefix.suffix.lower() == '.csv':
         outprefix = outprefix.with_suffix('')
+    outprefix.parent.mkdir(parents=True, exist_ok=True)
     
     csv_path = outprefix.with_suffix('.csv')
     pdb_center = outprefix.with_name(outprefix.stem + '_centerline.pdb')

@@ -192,6 +192,7 @@ def suggest(
         )
         
         generate_path = Path(generate)
+        generate_path.parent.mkdir(parents=True, exist_ok=True)
         with open(generate_path, 'w') as f:
             yaml.dump(workflow_yaml, f, default_flow_style=False, sort_keys=False)
         
