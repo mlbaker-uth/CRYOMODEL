@@ -10,11 +10,13 @@ from .pyhole import (
     write_centerline_pdb,
     write_mesh_pdb,
     calculate_pore_statistics,
+    normalize_occupancy_metric,
 )
 
 __all__ = [
     "load_pdb_atoms",
     "parse_residue_tokens",
+    "normalize_occupancy_metric",
     "profile_along_axis",
     "construct_centers_curved",
     "profile_along_centers",

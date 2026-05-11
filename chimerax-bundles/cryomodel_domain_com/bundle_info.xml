@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BundleInfo name="ChimeraX-CryoModel-Domain-COM"
+            version="0.2.4"
+            package="chimerax.cryomodel_domain_com"
+            minSessionVersion="1"
+            maxSessionVersion="1">
+
+<Author>Matthew Baker</Author>
+<Email>mlbaker@gmail.com</Email>
+<URL>https://github.com/mbaker-structbio/cryomodel</URL>
+<Synopsis>CryoModel Domain COM tool</Synopsis>
+<Description>
+  Domain definition, COM calculation, and reference geometry analysis for structures in ChimeraX.
+</Description>
+
+<Categories>
+  <Category name="CryoModel"/>
+</Categories>
+
+<Dependencies>
+  <Dependency name="ChimeraX-Core" version="~=1.1"/>
+  <Dependency name="ChimeraX-UI" version="~=1.0"/>
+</Dependencies>
+
+<Classifiers>
+    <ChimeraXClassifier>
+      ChimeraX :: Tool :: CryoModelDomainCOM :: CryoModel :: Domain COM analysis
+    </ChimeraXClassifier>
+</Classifiers>
+
+</BundleInfo>

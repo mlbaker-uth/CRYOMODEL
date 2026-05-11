@@ -79,6 +79,10 @@ def _load_one(arg: str) -> Tuple[pd.DataFrame, dict, str]:
     return df, summary, label
 
 
+# Light blue fill for species-blocked / restricted spans (e.g. water passability).
+_PASSABILITY_RESTRICT_COLOR = "#b8daf8"
+
+
 def _shade_blocked(ax, summary: dict, species: Optional[str], *, swap_axes: bool = False) -> None:
     """Shade blocked spans on the plot."""
     if not summary:
@@ -97,9 +101,9 @@ def _shade_blocked(ax, summary: dict, species: Optional[str], *, swap_axes: bool
             if x0 is None or x1 is None:
                 continue
             if swap_axes:
-                ax.axhspan(x0, x1, color='0.85', alpha=0.5, lw=0, label=None)
+                ax.axhspan(x0, x1, facecolor=_PASSABILITY_RESTRICT_COLOR, alpha=0.55, lw=0, label=None)
             else:
-                ax.axvspan(x0, x1, color='0.85', alpha=0.5, lw=0, label=None)
+                ax.axvspan(x0, x1, facecolor=_PASSABILITY_RESTRICT_COLOR, alpha=0.55, lw=0, label=None)
 
 
 def _annotate_stats(ax, summary: dict) -> None:
@@ -122,6 +126,24 @@ def _annotate_stats(ax, summary: dict) -> None:
     ax.text(0.98, 0.02, "  •  ".join(txts), transform=ax.transAxes,
             ha='right', va='bottom', fontsize=9,
             bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='0.7'))
+
+
+def apply_pyhole_plot_font() -> None:
+    """Prefer Arial for plot text (axis labels, ticks, legend, title).
+
+    Falls back to Helvetica / Liberation Sans / DejaVu Sans if Arial is not installed.
+    """
+    plt.rcParams.update({
+        "font.family": "sans-serif",
+        "font.sans-serif": [
+            "Arial",
+            "Helvetica",
+            "Helvetica Neue",
+            "Liberation Sans",
+            "Nimbus Sans",
+            "DejaVu Sans",
+        ],
+    })
 
 
 def _apply_paper_style() -> None:
@@ -187,10 +209,13 @@ def plot_single(
         fig, ax = plt.subplots(figsize=(4, 3))
     
     # Main line
+    # Plain text so Arial (sans-serif) applies to the whole label; N = axial distance along pore (Å).
+    _axial_label = "Axial coordinate N (Å)"
+
     if swap_axes:
         ax.plot(df['radius_A'], df['s_A'], lw=1.8, color=color, label=label)
         ax.set_xlabel("Radius (Å)")
-        ax.set_ylabel("Axial coordinate s (Å)")
+        ax.set_ylabel(_axial_label)
         if ylim:
             ax.set_xlim(*ylim)  # ylim refers to radius range
         if hlines:
@@ -202,7 +227,7 @@ def plot_single(
         _shade_blocked(ax, summary, species, swap_axes=True)
     else:
         ax.plot(df['s_A'], df['radius_A'], lw=1.8, color=color, label=label)
-        ax.set_xlabel("Axial coordinate s (Å)")
+        ax.set_xlabel(_axial_label)
         ax.set_ylabel("Radius (Å)")
         if ylim:
             ax.set_ylim(*ylim)

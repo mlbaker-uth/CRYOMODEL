@@ -141,7 +141,7 @@ This subsection captures the **intended** staged inference for purine vs pyrimid
 
 #### 7.4.0 v1 scope and implementation status (ChimeraX)
 
-- **Reference files (unchanged)**: the tool still loads `**referencePDB-purine.pdb`** and `**referencePDB-pyrimidine.pdb**`. **Internal convention only**: those files are **adenine (A)** and **cytosine (C)** geometry respectively—the **smallest** bases per class (fewest base atoms) for v1; filenames are not switched to `referencePDB-A.pdb` / `referencePDB-C.pdb`.
+- **Reference files (unchanged)**: the tool still loads `**referencePDB-purine.pdb`** and `**referencePDB-pyrimidine.pdb`**. **Internal convention only**: those files are **adenine (A)** and **cytosine (C)** geometry respectively—the **smallest** bases per class (fewest base atoms) for v1; filenames are not switched to `referencePDB-A.pdb` / `referencePDB-C.pdb`.
 - **Phases 1–3**: the **pipeline slots** for all three phases can run in a loose sense, but **answers often coincide** until the following are fully implemented: Phase **2** correlation / inclusion / exclusion (and related map–template contrasts), and Phase **3** **EMD** and **molmap**-style synthetic-vs-experimental tests.
 - **EMD / Phase 3**: **not wired** in the interactive tool yet; §7.4.4 describes the **target** behavior only.
 
@@ -174,7 +174,7 @@ This subsection captures the **intended** staged inference for purine vs pyrimid
 #### 7.4.4 Phase 3 — **Thorough** (synthetic density vs EMD) — *design only; not implemented in tool yet*
 
 - **Target behavior** (future): add **experimental map** (or full **EMD**) evidence on top of Phases 1–2.
-- **Synthetic map from the built/fitted model** (ChimeraX `**molmap`**): e.g. `**molmap #8/A 2.5**` where `**#8**` is the atomic model, `**A**` is the chain ID for that nucleotide, and `**2.5**` is the **simulated resolution in Å**. After `molmap`, use a displayed isosurface threshold (example from notes: **0.8** on the generated volume) for **inside / outside** or overlap tests.
+- **Synthetic map from the built/fitted model** (ChimeraX `**molmap`**): e.g. `**molmap #8/A 2.5`** where `**#8**` is the atomic model, `**A**` is the chain ID for that nucleotide, and `**2.5**` is the **simulated resolution in Å**. After `molmap`, use a displayed isosurface threshold (example from notes: **0.8** on the generated volume) for **inside / outside** or overlap tests.
 - **Discrimination test**: score **purine-in-purine-density** vs **purine-in-pyrimidine-density** (and symmetrically for pyrimidine). A **correct** class match should produce a **small** residual change when swapping labels; a **wrong** class (**Pur→Pyr** or **Pyr→Pur**) should produce a **large** change (poor overlap / high EMD).
 
 ---

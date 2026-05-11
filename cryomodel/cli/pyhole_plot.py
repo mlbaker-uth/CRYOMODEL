@@ -4,12 +4,14 @@ from __future__ import annotations
 from pathlib import Path
 import typer
 import matplotlib.pyplot as plt
+from matplotlib import rc_context
 
 from ..pore.plotter import (
     _load_one,
     _parse_pair_any,
     _parse_hlines,
     _apply_paper_style,
+    apply_pyhole_plot_font,
     plot_single,
 )
 
@@ -28,8 +30,9 @@ def plot(
     species: str = typer.Option("water", "--species", help="Passability species to shade"),
     hlines: str = typer.Option("1.4:water", "--hlines", help="Reference lines 'y[:label],y[:label],...'"),
     pdf: bool = typer.Option(False, "--pdf", help="Also save PDF alongside PNG"),
+    svg: bool = typer.Option(False, "--svg", help="Also save SVG (vector) alongside PNG"),
     style_paper: bool = typer.Option(False, "--style-paper", help="Apply compact journal-like styling"),
-    swap_axes: bool = typer.Option(False, "--swap-axes", help="Swap axes: radius on X, s_A on Y"),
+    swap_axes: bool = typer.Option(False, "--swap-axes", help="Swap axes: radius on X, axial position (s_A column) on Y"),
     secondary: str = typer.Option(None, "--secondary", help="Secondary curve: 'hydro', 'electro', or 'occ'"),
     sec_ylim: str = typer.Option(None, "--sec-ylim", help="Limits for secondary axis (lo,hi)"),
     sec_label: str = typer.Option(None, "--sec-label", help="Override label for secondary axis"),
@@ -38,6 +41,7 @@ def plot(
     secondary_color: str = typer.Option(None, "--secondary-color", help="Secondary curve color"),
 ):
     """Plot pyHole radius profiles from CSV/summary outputs."""
+    apply_pyhole_plot_font()
     if style_paper:
         _apply_paper_style()
     
@@ -77,7 +81,10 @@ def plot(
         out_png = f"{out}.png"
         plt.savefig(out_png)
         if pdf:
-            plt.savefig(f"{out}.pdf")
+            plt.savefig(f"{out}.pdf", bbox_inches="tight")
+        if svg:
+            with rc_context({"svg.fonttype": "none"}):
+                plt.savefig(f"{out}.svg", format="svg", bbox_inches="tight")
         typer.echo(f"Wrote {out_png}")
         return
     
@@ -113,7 +120,10 @@ def plot(
         out_png = f"{out}.png"
         plt.savefig(out_png)
         if pdf:
-            plt.savefig(f"{out}.pdf")
+            plt.savefig(f"{out}.pdf", bbox_inches="tight")
+        if svg:
+            with rc_context({"svg.fonttype": "none"}):
+                plt.savefig(f"{out}.svg", format="svg", bbox_inches="tight")
         typer.echo(f"Wrote {out_png}")
         return
     
@@ -133,7 +143,10 @@ def plot(
     out_png = f"{out}.png"
     plt.savefig(out_png)
     if pdf:
-        plt.savefig(f"{out}.pdf")
+        plt.savefig(f"{out}.pdf", bbox_inches="tight")
+    if svg:
+        with rc_context({"svg.fonttype": "none"}):
+            plt.savefig(f"{out}.svg", format="svg", bbox_inches="tight")
     typer.echo(f"Wrote {out_png}")
 
 

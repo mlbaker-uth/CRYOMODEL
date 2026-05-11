@@ -142,7 +142,10 @@ If you only use CLI tools, you can skip this section.
 
 Bundle location in this repo:
 
-- `chimerax-bundles/cryomodel`
+- `chimerax-bundles/cryomodel` (main CryoModel bundle)
+- `chimerax-bundles/pyhole_chimerax_fix4`, `chimerax-bundles/ChimeraX-pathwalker-fixed4`, `chimerax-bundles/cryomodel_domain_com` (satellite tools; same `devel install` pattern)
+
+See `chimerax-bundles/cryomodel/README.md` for bundle names used by `toolshed uninstall`.
 
 In ChimeraX command line (not shell terminal), run:
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BundleInfo name="ChimeraX-pathwalker"
+            version="0.2.4"
+            package="chimerax.pathwalker"
+            minSessionVersion="1"
+            maxSessionVersion="1">
+
+  <Author>Matthew Baker and PathWalker contributors</Author>
+  <Email>mlbaker@gmail.com</Email>
+  <URL>https://github.com/mbaker-structbio/ChimeraX-pathwalker</URL>
+
+  <Synopsis>PathWalker: pseudoatom seeding and backbone tracing in density maps</Synopsis>
+  <Description>
+    Ports the PathWalker workflow to ChimeraX, including pseudoatom seeding from maps,
+    LKH-based backbone tracing, editable trace manipulation, fixed edges, and helix replacement.
+  </Description>
+
+  <Categories>
+    <Category name="CryoModel"/>
+  </Categories>
+
+  <Dependencies>
+    <Dependency name="ChimeraX-Core" version="~=1.1"/>
+    <Dependency name="ChimeraX-UI"   version="~=1.0"/>
+  </Dependencies>
+
+  <Classifiers>
+    <ChimeraXClassifier>
+      ChimeraX :: Tool :: PathWalker :: CryoModel :: Model building with TSP tracing
+    </ChimeraXClassifier>
+  </Classifiers>
+
+</BundleInfo>

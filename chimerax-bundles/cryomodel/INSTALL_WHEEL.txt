@@ -1,16 +1,45 @@
-CryoModel ChimeraX bundle – install via wheel (like pyHole)
+CryoModel ChimeraX bundle – wheel build and toolshed install
 
-1. In ChimeraX, build the wheel:
+All commands in steps 1 and 4 run inside ChimeraX’s command line unless noted.
+
+1) Clean and build the wheel
+
    devel clean /path/to/CRYOMODEL/chimerax-bundles/cryomodel
    devel build /path/to/CRYOMODEL/chimerax-bundles/cryomodel
 
-2. Fix the wheel metadata so toolshed accepts it (run in a terminal):
+2) (Optional) Sync vendored library before build
+
+   From a host shell, from the bundle directory:
+   bash scripts/sync_cryomodel_into_bundle.sh
+
+3) Fix wheel metadata if toolshed install rejects the wheel (host terminal)
+
    cd /path/to/CRYOMODEL/chimerax-bundles/cryomodel
-   python3 fix_wheel_metadata.py dist/cryomodel-0.1.0-py3-none-any.whl
-   (wheel name matches [project] name = "cryomodel" in pyproject.toml)
-   (or: python3 fix_wheel_metadata.py   to use the first wheel in dist/)
+   python3 fix_wheel_metadata.py dist/cryomodel-<version>-py3-none-any.whl
 
-3. In ChimeraX, install the wheel:
-   toolshed install /path/to/CRYOMODEL/chimerax-bundles/cryomodel/dist/cryomodel-0.1.0-py3-none-any.whl
+   Use the actual wheel name under dist/ (version must match [project] version in pyproject.toml).
+   Shortcut: python3 fix_wheel_metadata.py   (uses the first .whl in dist/)
 
-4. Restart ChimeraX. Open Tools → CryoModel → CryoModel Domain Tool.
+4) Install the wheel (ChimeraX command line)
+
+   toolshed install /path/to/CRYOMODEL/chimerax-bundles/cryomodel/dist/cryomodel-<version>-py3-none-any.whl
+
+5) Restart ChimeraX. Tools appear under Tools → CryoModel (and commands in the command list).
+
+Uninstall (ChimeraX command line)
+
+   toolshed list installed
+   toolshed uninstall cryomodel
+
+   If removal is blocked by dependencies: toolshed uninstall cryomodel forceRemove true
+
+---
+
+Sibling bundles in this repo (same devel / toolshed pattern; bundle names for uninstall):
+
+  chimerax-bundles/pyhole_chimerax_fix4          ->  ChimeraX-pyHole
+  chimerax-bundles/ChimeraX-pathwalker-fixed4  ->  ChimeraX-pathwalker
+  chimerax-bundles/cryomodel_domain_com        ->  ChimeraX-CryoModel-Domain-COM
+
+They use bundle_info.xml only (no pyproject.toml). cryomodel/fix_wheel_metadata.py is
+for the main cryomodel wheel only unless you copy the same fix step for another wheel.

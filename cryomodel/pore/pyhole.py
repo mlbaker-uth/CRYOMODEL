@@ -38,6 +38,19 @@ KD_MAX = max(KD_HYDRO.values())
 
 CHARGE_MAP = {'ARG': +1.0, 'LYS': +1.0, 'HIS': +0.1, 'ASP': -1.0, 'GLU': -1.0}
 ELEC_MIN, ELEC_MAX = -1.0, +1.0
+MIN_PORE_RADIUS_A = 0.1  # floor for reported pore radius (Å); avoids degenerate mesh when clearance ≤ 0
+
+
+def normalize_occupancy_metric(s: str) -> str:
+    """Map CLI/GUI occupancy string to hydro | electro | radii."""
+    o = (s or "hydro").lower().strip()
+    if o.startswith("hydro"):
+        return "hydro"
+    if o.startswith("elect"):
+        return "electro"
+    if o.startswith("rad"):
+        return "radii"
+    return "hydro"
 
 
 class Atom:
@@ -97,10 +110,11 @@ def parse_residue_tokens(s: str) -> List[Tuple[str, int]]:
         t = t.strip()
         if not t:
             continue
-        # Match "RESNAME123/CHAIN" format
-        m = re.match(r'^[A-Za-z]{0,3}?(\d+)\s*/\s*([A-Za-z0-9])$', t)
+        # Match ONELETTER...NUM/CHAIN or THREELETNUM/CHAIN (optional chain → '*')
+        m = re.match(r'^([A-Za-z]{1,3})(\d+)\s*/\s*([A-Za-z0-9]*)$', t)
         if m:
-            tokens.append((m.group(2), int(m.group(1))))
+            chain = m.group(3).strip() or '*'
+            tokens.append((chain, int(m.group(2))))
             continue
         # Match "CHAIN:123" or "CHAIN 123" format
         m = re.match(r'^([A-Za-z0-9])\s*[:\s]\s*(\d+)$', t)
@@ -116,12 +130,21 @@ def parse_residue_tokens(s: str) -> List[Tuple[str, int]]:
     return tokens
 
 
-def load_pdb_atoms(path: str, include_h: bool = True) -> List[Atom]:
-    """Load atoms from PDB file."""
+def load_pdb_atoms(
+    path: str,
+    include_h: bool = True,
+    include_hetatm: bool = True,
+) -> List[Atom]:
+    """Load atoms from PDB file.
+
+    If ``include_hetatm`` is False, skip all HETATM records (ligands, waters, ions, etc.).
+    """
     atoms = []
     with open(path, 'r') as f:
         for line in f:
             if line[:6] not in ('ATOM  ', 'HETATM'):
+                continue
+            if not include_hetatm and line[:6] == 'HETATM':
                 continue
             name = line[12:16]
             resname = line[17:20].strip()
@@ -188,8 +211,8 @@ def _evaluate_slice(
     """Evaluate pore properties at a single point."""
     dv = atom_xyz - c
     d = np.sqrt((dv * dv).sum(axis=1)) - atom_r
-    rmin = float(np.min(d))
-    mask = d <= (rmin + contact_eps)
+    r_raw = float(np.min(d))
+    mask = d <= (r_raw + contact_eps)
     
     seen = set()
     tags = []
@@ -216,6 +239,7 @@ def _evaluate_slice(
     if electro_scale == '01':
         electro = (electro - ELEC_MIN) / (ELEC_MAX - ELEC_MIN)
     
+    rmin = max(r_raw, MIN_PORE_RADIUS_A)
     return rmin, tags, hydro, electro
 
 
@@ -283,9 +307,15 @@ def profile_along_axis(
             rows += eval_rows(ns)
     
     rows.sort(key=lambda r: r['s_A'])
+    occ_m = normalize_occupancy_metric(occupancy_metric)
     for r in rows:
-        r['occ_value'] = float(r['hydro_index'] if occupancy_metric == 'hydro' else r['electro_index'])
-    
+        if occ_m == 'hydro':
+            r['occ_value'] = float(r['hydro_index'])
+        elif occ_m == 'electro':
+            r['occ_value'] = float(r['electro_index'])
+        else:
+            r['occ_value'] = float(r['radius_A'])
+
     return rows, u, L
 
 
@@ -390,8 +420,15 @@ def profile_along_centers(
         rows[i]['tx'] = float(t[0])
         rows[i]['ty'] = float(t[1])
         rows[i]['tz'] = float(t[2])
-        rows[i]['occ_value'] = float(rows[i]['hydro_index'] if occupancy_metric == 'hydro' else rows[i]['electro_index'])
-    
+    occ_m = normalize_occupancy_metric(occupancy_metric)
+    for i in range(len(rows)):
+        if occ_m == 'hydro':
+            rows[i]['occ_value'] = float(rows[i]['hydro_index'])
+        elif occ_m == 'electro':
+            rows[i]['occ_value'] = float(rows[i]['electro_index'])
+        else:
+            rows[i]['occ_value'] = float(rows[i]['radius_A'])
+
     return rows
 
 
@@ -419,7 +456,7 @@ def write_centerline_pdb(path: Path, rows: List[Dict]) -> None:
         occ = float(r.get('occ_value', 0.0))
         lines.append(
             f"HETATM{serial:5d}  O  PORE Z{i:4d}    "
-            f"{x:8.3f}{y:8.3f}{z:8.3f}{occ:6.2f}{b:6.2f}          O \n"
+            f"{x:8.3f}{y:8.3f}{z:8.3f}{occ:6.3f}{b:6.3f}          O \n"
         )
         serial += 1
     with open(path, 'w', newline='') as f:
@@ -442,7 +479,7 @@ def _format_pdb_atom_line(
     """Format a PDB ATOM line."""
     return (
         f"ATOM  {serial:5d} {name:^4}{altLoc}{resName:>3} {chainID}{resSeq:>4}{iCode}   "
-        f"{x:8.3f}{y:8.3f}{z:8.3f}{occupancy:6.2f}{bfactor:6.2f}          {element:>2}  \n"
+        f"{x:8.3f}{y:8.3f}{z:8.3f}{occupancy:6.3f}{bfactor:6.3f}          {element:>2}  \n"
     )
 
 
@@ -459,7 +496,7 @@ def write_mesh_pdb(path: Path, rows: List[Dict], axis_u: np.ndarray, rings: int 
     
     for r in rows:
         c = np.array([r['x'], r['y'], r['z']], dtype=float)
-        rad = max(0.0, float(r['radius_A']))
+        rad = max(MIN_PORE_RADIUS_A, float(r['radius_A']))
         occ = float(r.get('occ_value', 0.0))
         if use_local:
             u_loc = np.array([r['tx'], r['ty'], r['tz']], dtype=float)

@@ -17,6 +17,7 @@ from ..pore.pyhole import (
     write_mesh_pdb,
     calculate_pore_statistics,
     vdw_radius,
+    normalize_occupancy_metric,
 )
 
 app = typer.Typer(no_args_is_help=True)
@@ -30,12 +31,21 @@ def analyze(
     step: float = typer.Option(1.0, "--step", help="Step size along axis (Å)"),
     eps: float = typer.Option(0.25, "--eps", help="Contact epsilon (Å)"),
     no_h: bool = typer.Option(False, "--no-h", help="Exclude hydrogen atoms"),
+    no_hetatm: bool = typer.Option(
+        False,
+        "--no-hetatm",
+        help="Exclude all HETATM records (ligands, lipids, waters, ions, etc.)",
+    ),
     vdw_json: str = typer.Option("", "--vdw-json", help="Custom VDW radii JSON file"),
     rings: int = typer.Option(24, "--rings", help="Number of rings for mesh PDB"),
     out_prefix: str = typer.Option("pyhole_out", "--out-prefix", help="Output file prefix"),
     probe: float = typer.Option(0.0, "--probe", help="Probe radius for accessible volume (Å)"),
     conductivity: float = typer.Option(1.5, "--conductivity", help="Conductivity (S/m)"),
-    occupancy: str = typer.Option("hydro", "--occupancy", help="Occupancy metric: 'hydro' or 'electro'"),
+    occupancy: str = typer.Option(
+        "hydro",
+        "--occupancy",
+        help="Occupancy column for mesh/centerline PDB: 'hydro', 'electro', or 'radii' (radius in Å)",
+    ),
     hydro_scale: str = typer.Option("raw", "--hydro-scale", help="Hydrophobicity scale: 'raw' or '01'"),
     electro_scale: str = typer.Option("raw", "--electro-scale", help="Electrostatics scale: 'raw' or '01'"),
     passable_json: str = typer.Option("", "--passable-json", help="Passability radii JSON file"),
@@ -59,7 +69,11 @@ def analyze(
         bottom = typer.prompt("Enter BOTTOM residue selection")
     
     # Load atoms
-    atoms = load_pdb_atoms(str(pdb_path), include_h=not no_h)
+    atoms = load_pdb_atoms(
+        str(pdb_path),
+        include_h=not no_h,
+        include_hetatm=not no_hetatm,
+    )
     
     # Parse selections
     top_sel = parse_residue_tokens(top)
@@ -87,7 +101,9 @@ def analyze(
     coords = np.array([[a.x, a.y, a.z] for a in atoms], dtype=float)
     radii = np.array([vdw_radius(a.element, custom_vdw) for a in atoms], dtype=float)
     metas = [(a.chain, a.resname, a.resi) for a in atoms]
-    
+
+    occ_metric = normalize_occupancy_metric(occupancy)
+
     # Calculate profile
     if centerline == 'straight':
         rows, u, L = profile_along_axis(
@@ -97,14 +113,14 @@ def analyze(
             max_refine=max_refine,
             hydro_scale=hydro_scale,
             electro_scale=electro_scale,
-            occupancy_metric=occupancy,
+            occupancy_metric=occ_metric,
         )
     else:
         centers, u, L = construct_centers_curved(
             coords, radii, c_bot, c_top, step, curve_radius, curve_iters
         )
         rows = profile_along_centers(
-            coords, radii, centers, eps, metas, hydro_scale, electro_scale, occupancy
+            coords, radii, centers, eps, metas, hydro_scale, electro_scale, occ_metric
         )
     
     # Calculate statistics
@@ -142,14 +158,21 @@ def analyze(
         'top': top,
         'bottom': bottom,
         'centerline': centerline,
+        'adaptive': bool(adaptive),
+        'slope_thresh': float(slope_thresh),
+        'max_refine': int(max_refine),
+        'curve_radius_A': float(curve_radius),
+        'curve_iters': int(curve_iters),
         'step_A': float(step),
         'eps_A': float(eps),
         'probe_A': float(probe),
         'length_A': float(rows[-1]['s_A'] if rows else 0.0),
         'num_samples': len(rows),
-        'occupancy_metric': occupancy,
+        'occupancy_metric': occ_metric,
         'hydroscale': hydro_scale,
         'electroscale': electro_scale,
+        'no_hydrogens': bool(no_h),
+        'ignore_hetatm': bool(no_hetatm),
         **stats,
     }
     

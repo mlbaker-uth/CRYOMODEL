@@ -4,7 +4,7 @@ build-backend = "chimerax.bundle_builder.cx_pep517"
 
 [project]
 name = "cryomodel"
-version = "0.1.5"
+version = "0.1.6"
 description = "Unified cryo-EM modeling toolkit (ChimeraX bundle)"
 readme = "README.md"
 license = "MIT"
@@ -32,15 +32,15 @@ custom-init = false
 categories = ["Volume Data", "CryoModel"]
 
 [tool.chimerax.command.cryomodel_findligands]
-category = "Volume Data"
+category = "CryoModel"
 description = "Assign unmodeled density with CryoModel"
 
 [tool.chimerax.command.cryomodel_pdbdomain]
-category = "Volume Data"
+category = "CryoModel"
 description = "Domain identification and COM analysis"
 
 [tool.chimerax.command.cryomodel_manifest]
-category = "Volume Data"
+category = "CryoModel"
 description = "Write CryoModel workflow manifest JSON for open models (CryoModel workflow UI)"
 
 [tool.chimerax.tool."CryoModel Domain Tool"]

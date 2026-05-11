@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Minimal XML: SrcDir / Commands live in pyproject.toml ([tool.chimerax]) for current bundle_builder. -->
 <BundleInfo name="cryomodel"
-            version="0.1.5"
+            version="0.1.6"
             package="chimerax.cryomodel"
             minSessionVersion="1"
             maxSessionVersion="1">
@@ -10,10 +10,11 @@
   <Email>matthew.baker@uth.tmc.edu</Email>
   <URL>https://github.com/mlbaker-uth/CRYOMODEL</URL>
 
-  <Synopsis>CryoModel: domain identification, COM analysis, workflow manifest</Synopsis>
+  <Synopsis>CryoModel: BaseHunter, workflow manifest, legacy domain/COM tool</Synopsis>
   <Description>
-    Domain identification and center-of-mass analysis for macromolecular structures,
-    ChimeraX manifest export for the CryoModel workflow UI, and related tools.
+    BaseHunter Interactive, ChimeraX manifest export for the CryoModel workflow UI,
+    and the legacy CryoModel Domain Tool (to be retired once the separate Domain/COM wheel is verified).
+    PyHole, Pathwalker, and Domain/COM live in their own ChimeraX wheels; set each tool category to CryoModel so they appear under Tools → CryoModel.
   </Description>
 
   <Categories>
@@ -37,7 +38,13 @@
       ChimeraX :: Tool :: BaseHunter Interactive :: CryoModel :: Interactive DNA base-pair decision support scaffold
     </ChimeraXClassifier>
     <ChimeraXClassifier>
-      ChimeraX :: Command :: cryomodel_manifest :: Volume Data :: Write CryoModel workflow manifest JSON for open models
+      ChimeraX :: Command :: cryomodel_findligands :: CryoModel :: Assign unmodeled density with CryoModel
+    </ChimeraXClassifier>
+    <ChimeraXClassifier>
+      ChimeraX :: Command :: cryomodel_pdbdomain :: CryoModel :: Open CryoModel domain identification tool
+    </ChimeraXClassifier>
+    <ChimeraXClassifier>
+      ChimeraX :: Command :: cryomodel_manifest :: CryoModel :: Write CryoModel workflow manifest JSON for open models
     </ChimeraXClassifier>
   </Classifiers>
 
