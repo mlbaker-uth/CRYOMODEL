@@ -224,6 +224,18 @@ python -m pip install -U pip
 python -m pip install -e .
 ```
 
+### Manager UI opens but Launch Application does nothing (ports 8010 / 8011)
+
+Another CryoModel session (often another macOS user account) may still be listening on **8010** (workflow API) or **8011** (manager API). Inspect and stop them:
+
+```bash
+cryomodel manager cleanup
+cryomodel manager cleanup --kill          # confirm before stopping
+cryomodel manager cleanup --kill --yes    # stop your CryoModel listeners
+```
+
+If the listener belongs to another user, switch to that account and run cleanup there, or use `sudo kill <pid>` as printed by the command.
+
 ### Windows activation script blocked
 
 Run:

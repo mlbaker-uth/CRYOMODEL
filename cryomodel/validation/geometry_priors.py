@@ -615,6 +615,7 @@ def compute_geometry_features(
 
     return {
         "ramachandran_prob": float(rama_prob),
+        "rama_class": rama_class if rama_class is not None else "",
         "rama_outlier": float(rama_outlier),
         "rama_penalty": float(rama_pen),
         "omega_dev_deg": omega_dev_deg,

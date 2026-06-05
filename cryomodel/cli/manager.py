@@ -18,6 +18,7 @@ from uuid import uuid4
 import typer
 
 from .command_log import log_command
+from . import server_cleanup
 
 manager_app = typer.Typer(
     help="Project organizer and workflow-ui launcher.",
@@ -606,8 +607,9 @@ def _manager(
         if _is_port_open(host, port):
             typer.echo(
                 f"Note: port {port} is already in use (manager API may be an older process). "
-                "If Launch Application opens the legacy workflow UI, stop that process and run "
-                "`cryomodel manager` again, or restart with: `cryomodel manager serve` on a free port.",
+                "If Launch Application does nothing or opens the wrong UI, run "
+                "`cryomodel manager cleanup` (or `cryomodel manager cleanup --kill --yes`). "
+                "See also: `cryomodel manager cleanup --help`.",
                 err=True,
             )
         else:
@@ -775,6 +777,98 @@ def status(
     typer.echo(f"Port open: {_is_port_open(host, port)}")
     typer.echo(f"PID alive: {_pid_running(pid)}")
     typer.echo(f"Updated: {sess.get('updated_at', 'n/a')}")
+
+
+@manager_app.command("cleanup")
+@log_command("manager cleanup")
+def cleanup_servers(
+    port: Optional[List[int]] = typer.Option(
+        None,
+        "--port",
+        help="TCP port to scan (repeatable). Default: 8010, 8011, plus ports from ~/.cryomodel.",
+    ),
+    kill: bool = typer.Option(
+        False,
+        "--kill",
+        help="Stop CryoModel listeners owned by you (SIGTERM, then SIGKILL if needed).",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="With --kill, do not ask for confirmation.",
+    ),
+    all_listeners: bool = typer.Option(
+        False,
+        "--all-listeners",
+        help="With --kill, stop any process on scanned ports, not only CryoModel-classified ones.",
+    ),
+    all_users: bool = typer.Option(
+        False,
+        "--all-users",
+        help="With --kill, attempt to stop other users' processes (usually requires sudo).",
+    ),
+) -> None:
+    """Find workflow (8010) / manager (8011) API listeners and optionally stop them."""
+    if kill and not yes:
+        typer.echo("Scanning for CryoModel UI servers…")
+    summary = server_cleanup.run_cleanup(
+        ports=port,
+        kill=False,
+        yes=False,
+        all_listeners=all_listeners,
+        all_users=all_users,
+        projects_file=PROJECTS_FILE,
+        sessions_file=SESSIONS_FILE,
+    )
+    typer.echo(str(summary.get("report") or ""))
+    help_text = str(summary.get("kill_help") or "")
+    if help_text and not kill:
+        typer.echo("")
+        typer.echo(help_text)
+
+    if not kill:
+        if summary.get("listeners"):
+            typer.echo("\nTo stop CryoModel servers: cryomodel manager cleanup --kill")
+        raise typer.Exit(0)
+
+    listeners = summary.get("listeners") or []
+    if not listeners:
+        raise typer.Exit(0)
+
+    if not yes:
+        if not typer.confirm("Stop CryoModel listener(s) listed above?", default=False):
+            typer.echo("No processes were stopped.")
+            raise typer.Exit(0)
+
+    kill_summary = server_cleanup.run_cleanup(
+        ports=port,
+        kill=True,
+        yes=True,
+        all_listeners=all_listeners,
+        all_users=all_users,
+        projects_file=PROJECTS_FILE,
+        sessions_file=SESSIONS_FILE,
+    )
+    results = kill_summary.get("killed") or []
+    if results:
+        typer.echo("")
+        for r in results:
+            status = "ok" if r.ok else "failed"
+            typer.echo(f"  PID {r.pid} (port {r.port}): {status} — {r.message}")
+    cleared = kill_summary.get("sessions_cleared")
+    if cleared:
+        typer.echo(f"Cleared {cleared} stale session PID(s) in {SESSIONS_FILE}.")
+    if not results:
+        typer.echo("Nothing was stopped.")
+    failed = [r for r in results if not r.ok]
+    if failed:
+        typer.echo(
+            "\nSome processes could not be stopped. Use the manual commands above "
+            "(switch user account or sudo kill).",
+            err=True,
+        )
+        raise typer.Exit(1)
 
 
 @manager_app.command("stop")

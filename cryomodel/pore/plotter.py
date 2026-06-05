@@ -79,8 +79,8 @@ def _load_one(arg: str) -> Tuple[pd.DataFrame, dict, str]:
     return df, summary, label
 
 
-# Light blue fill for species-blocked / restricted spans (e.g. water passability).
-_PASSABILITY_RESTRICT_COLOR = "#b8daf8"
+# Fill for species-blocked / restricted spans (passability “closed” regions along the pore axis).
+_PASSABILITY_RESTRICT_COLOR = "#938389"
 
 
 def _shade_blocked(ax, summary: dict, species: Optional[str], *, swap_axes: bool = False) -> None:

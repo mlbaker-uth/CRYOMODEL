@@ -19,6 +19,7 @@ from ..validation.composite_score import (
     write_structure_with_composite_bfactors,
 )
 from ..validation.benchmark_priors import priors_dict_from_benchmark
+from ..validation.residue_report import resolve_validate_score_column, write_residue_report
 from ..validation.feature_extractor import extract_residue_features
 from ..validation.resolution_priors import (
     compute_z_residuals,
@@ -89,6 +90,16 @@ def validate(
             "Directory with CCP4 monomers (list/mon_lib_list.cif) or residue *.cif files "
             "(e.g. CLIBD_MON); improves clash 1–4 exclusion vs distance-only bonds"
         ),
+    ),
+    residue_report: bool = typer.Option(
+        True,
+        "--residue-report/--no-residue-report",
+        help="Write residue_report.txt and .csv (Coot-friendly per-residue summaries)",
+    ),
+    residue_report_score: str = typer.Option(
+        "auto",
+        "--residue-report-score",
+        help="Headline score in report: auto, badness, quality, or band (same semantics as --bfactor-color)",
     ),
 ):
     """Validate cryoEM model with resolution-aware metrics."""
@@ -234,6 +245,24 @@ def validate(
     features_csv = out_path / "features.csv"
     features_df.to_csv(features_csv, index=False)
     typer.echo(f"  Saved features to {features_csv}")
+
+    if residue_report:
+        rs = residue_report_score.strip().lower()
+        if rs not in ("auto", "band", "badness", "quality"):
+            typer.echo(
+                f"Unknown --residue-report-score {residue_report_score!r} "
+                "(use auto, band, badness, quality).",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        score_col = resolve_validate_score_column(features_df, rs)
+        csv_r, txt_r = write_residue_report(
+            features_df,
+            out_path,
+            score_column=score_col,
+        )
+        typer.echo(f"  Saved per-residue report: {txt_r}")
+        typer.echo(f"  Saved per-residue table: {csv_r}")
     
     # Compute summary statistics
     typer.echo("\nSummary statistics:")
